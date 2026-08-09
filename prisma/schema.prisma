@@ -1,13 +1,13 @@
-// EMPRENDE AI — Modelo de datos (MVP)
+// EMPRENDE AI — Modelo de datos (MVP + v1.1)
 //
 // Subconjunto de la sección 26 de la especificación funcional/técnica necesario
-// para el MVP (§30, fase 1): autenticación, onboarding, modelo del negocio,
-// estructura de costos, inversión inicial y escenarios.
+// para el MVP (§30, fase 1: auth, onboarding, modelo del negocio, estructura de
+// costos, inversión inicial, escenarios) y la fase v1.1 (precificación
+// inteligente + curva de demanda, chat EMPRENDE AI).
 //
 // Entidades de fases posteriores (Shareholders, FundingRounds, Valuations,
-// Currencies, ExchangeRates, ImportCosts, AIConversations, ...) se agregan en
-// v1.2/v2.0 cuando esos módulos se implementen — no se crean tablas vacías por
-// adelantado.
+// Currencies, ExchangeRates, ImportCosts, ...) se agregan en v1.2/v2.0 cuando
+// esos módulos se implementen — no se crean tablas vacías por adelantado.
 //
 // Multi-tenancy: toda tabla de negocio cuelga de Company. Las server actions
 // siempre resuelven la Company del usuario autenticado (lib/actions/auth-guard.ts)
@@ -106,11 +106,12 @@ model Company {
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
 
-  products      Product[]
-  fixedCosts    FixedCost[]
-  variableCosts VariableCost[]
-  investments   Investment[]
-  scenarios     Scenario[]
+  products        Product[]
+  fixedCosts      FixedCost[]
+  variableCosts   VariableCost[]
+  investments     Investment[]
+  scenarios       Scenario[]
+  aiConversations AIConversation[]
 
   @@index([userId])
 }
@@ -125,24 +126,43 @@ enum ProductType {
 }
 
 model Product {
-  id                String      @id @default(cuid())
-  companyId         String
-  company           Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name              String
-  category          String?
-  type              ProductType @default(PRODUCTO)
-  price             Float
-  variableCost      Float
-  unitsSoldMonthly  Float       @default(0)
-  commissionPct     Float       @default(0)
-  taxPct            Float       @default(0)
-  discountPct       Float       @default(0)
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  id               String      @id @default(cuid())
+  companyId        String
+  company          Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name             String
+  category         String?
+  type             ProductType @default(PRODUCTO)
+  price            Float
+  variableCost     Float
+  unitsSoldMonthly Float       @default(0)
+  commissionPct    Float       @default(0)
+  taxPct           Float       @default(0)
+  discountPct      Float       @default(0)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   variableCostLinks VariableCost[]
+  pricePoints       PricePoint[]
 
   @@index([companyId])
+}
+
+// ---------------------------------------------------------------------------
+// Curva de demanda (§6) — pares históricos (precio, cantidad vendida) que
+// alimentan la regresión lineal de demanda y el cálculo de elasticidad
+// (fórmula 21.11). Dato real cargado por el usuario, nunca inventado.
+// ---------------------------------------------------------------------------
+
+model PricePoint {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  price      Float
+  quantity   Float
+  recordedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([productId])
 }
 
 // ---------------------------------------------------------------------------
@@ -166,16 +186,16 @@ enum FixedCostCategory {
 }
 
 model FixedCost {
-  id            String            @id @default(cuid())
-  companyId     String
-  company       Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name          String
-  category      FixedCostCategory @default(OTROS)
-  amount        Float
-  periodicity   CostPeriodicity   @default(MENSUAL)
-  growthPct     Float             @default(0)
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  id          String            @id @default(cuid())
+  companyId   String
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  category    FixedCostCategory @default(OTROS)
+  amount      Float
+  periodicity CostPeriodicity   @default(MENSUAL)
+  growthPct   Float             @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
   @@index([companyId])
 }
@@ -194,17 +214,17 @@ enum VariableCostCategory {
 /// (pctOfSales) — spec §4. Si se asocia a un producto, se suma a su costo
 /// variable unitario en el motor financiero.
 model VariableCost {
-  id            String                @id @default(cuid())
+  id            String               @id @default(cuid())
   companyId     String
-  company       Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company       Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
   name          String
-  category      VariableCostCategory  @default(OTROS)
+  category      VariableCostCategory @default(OTROS)
   amountPerUnit Float?
   pctOfSales    Float?
   productId     String?
-  product       Product?              @relation(fields: [productId], references: [id], onDelete: SetNull)
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  product       Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 
   @@index([companyId])
   @@index([productId])
@@ -264,4 +284,38 @@ model Scenario {
   updatedAt     DateTime     @updatedAt
 
   @@unique([companyId, type])
+}
+
+// ---------------------------------------------------------------------------
+// EMPRENDE AI — Chat consultor (§10)
+// ---------------------------------------------------------------------------
+
+enum AIMessageRole {
+  USER
+  ASSISTANT
+}
+
+/// Historial de conversación con el chat EMPRENDE AI. La IA solo redacta
+/// `content`; los datos que cita siempre provienen de un snapshot del
+/// Financial Engine (nunca calcula ni inventa cifras — spec §0.3/§10/§27).
+model AIConversation {
+  id        String      @id @default(cuid())
+  companyId String
+  company   Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  messages  AIMessage[]
+
+  @@index([companyId])
+}
+
+model AIMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           AIMessageRole
+  content        String
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId])
 }

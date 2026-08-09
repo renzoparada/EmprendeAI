@@ -16,7 +16,6 @@ import {
   Users,
   FileText,
   Target,
-  MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -36,16 +35,17 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/costos", label: "Estructura de Costos", icon: Wallet, enabled: true },
   { href: "/inversion", label: "Inversión Inicial", icon: Landmark, enabled: true },
   { href: "/escenarios", label: "Escenarios", icon: GitBranch, enabled: true },
-  { href: "/precios", label: "Precios", icon: Tag, enabled: false },
+  { href: "/precios", label: "Precios", icon: Tag, enabled: true },
   { href: "/sensibilidad", label: "Sensibilidad", icon: Activity, enabled: false },
   { href: "/multimoneda", label: "Multimoneda", icon: TrendingUp, enabled: false },
   { href: "/valoracion", label: "Valoración", icon: Gem, enabled: false },
   { href: "/socios", label: "Socios / Cap Table", icon: Users, enabled: false },
   { href: "/reportes", label: "Reportes", icon: FileText, enabled: false },
   { href: "/metas", label: "Mis Metas", icon: Target, enabled: false },
-  { href: "/chat", label: "EMPRENDE AI", icon: MessageCircle, enabled: false },
   { href: "/perfil", label: "Perfil", icon: User, enabled: true },
 ];
+// El chat EMPRENDE AI (spec §10) no es una ruta del sidebar — vive como panel
+// lateral flotante disponible en toda la app (ver EmprendeAIChatPanel).
 
 export function Sidebar() {
   const pathname = usePathname();

@@ -107,6 +107,16 @@ async function main() {
     ],
   });
 
+  // Datos históricos precio/cantidad del espresso, para que la curva de
+  // demanda y la elasticidad (spec §6) tengan algo que mostrar de entrada.
+  await prisma.pricePoint.createMany({
+    data: [
+      { productId: espresso.id, price: 12, quantity: 1500, recordedAt: new Date("2025-05-01") },
+      { productId: espresso.id, price: 15, quantity: 1200, recordedAt: new Date("2025-06-01") },
+      { productId: espresso.id, price: 18, quantity: 950, recordedAt: new Date("2025-07-01") },
+    ],
+  });
+
   await prisma.investment.createMany({
     data: [
       { companyId: company.id, category: "EQUIPAMIENTO", name: "Máquina de espresso profesional", amount: 25000 },
