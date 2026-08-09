@@ -1,0 +1,267 @@
+// EMPRENDE AI — Modelo de datos (MVP)
+//
+// Subconjunto de la sección 26 de la especificación funcional/técnica necesario
+// para el MVP (§30, fase 1): autenticación, onboarding, modelo del negocio,
+// estructura de costos, inversión inicial y escenarios.
+//
+// Entidades de fases posteriores (Shareholders, FundingRounds, Valuations,
+// Currencies, ExchangeRates, ImportCosts, AIConversations, ...) se agregan en
+// v1.2/v2.0 cuando esos módulos se implementen — no se crean tablas vacías por
+// adelantado.
+//
+// Multi-tenancy: toda tabla de negocio cuelga de Company. Las server actions
+// siempre resuelven la Company del usuario autenticado (lib/actions/auth-guard.ts)
+// antes de leer o escribir — spec §26/§28.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Cuentas y planes (§25)
+// ---------------------------------------------------------------------------
+
+enum PlanCode {
+  FREE
+  STARTER
+  PRO
+  BUSINESS
+  CONSULTOR
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  planCode     PlanCode @default(FREE)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  companies Company[]
+}
+
+// ---------------------------------------------------------------------------
+// Onboarding y negocio (§1, §3)
+// ---------------------------------------------------------------------------
+
+enum UserType {
+  EMPRENDEDOR
+  PROFESIONAL_INDEPENDIENTE
+  STARTUP
+  PYME
+  EMPRESA_ESTABLECIDA
+  FRANQUICIA
+  INVERSIONISTA
+}
+
+enum BusinessType {
+  RESTAURANTE
+  HOTEL
+  TURISMO
+  COMERCIO
+  ECOMMERCE
+  SERVICIOS
+  CONSULTORIA
+  EDUCACION
+  INMOBILIARIO
+  MANUFACTURA
+  TECNOLOGIA
+  SALUD
+  BELLEZA
+  TRANSPORTE
+  AGRICULTURA
+  OTRO
+}
+
+enum OperatingStage {
+  OPERANDO
+  NO_OPERANDO
+  ETAPA_IDEA
+}
+
+model Company {
+  id                    String         @id @default(cuid())
+  userId                String
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                  String
+  country               String
+  city                  String
+  currency              String         @default("BOB")
+  sector                String?
+  userType              UserType
+  businessType          BusinessType
+  startDate             DateTime?
+  employeeCount         Int?
+  operatingStage        OperatingStage
+  /// Tasa de impuesto a la utilidad usada por el Financial Engine (§8, EBIT → Utilidad Neta).
+  /// Supuesto por defecto editable en Perfil — se marca como tal en la UI (spec §0.3).
+  taxRatePct            Float          @default(25)
+  onboardingCompletedAt DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  products      Product[]
+  fixedCosts    FixedCost[]
+  variableCosts VariableCost[]
+  investments   Investment[]
+  scenarios     Scenario[]
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Modelo del negocio (§3)
+// ---------------------------------------------------------------------------
+
+enum ProductType {
+  PRODUCTO
+  SERVICIO
+}
+
+model Product {
+  id                String      @id @default(cuid())
+  companyId         String
+  company           Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name              String
+  category          String?
+  type              ProductType @default(PRODUCTO)
+  price             Float
+  variableCost      Float
+  unitsSoldMonthly  Float       @default(0)
+  commissionPct     Float       @default(0)
+  taxPct            Float       @default(0)
+  discountPct       Float       @default(0)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  variableCostLinks VariableCost[]
+
+  @@index([companyId])
+}
+
+// ---------------------------------------------------------------------------
+// Estructura de costos (§4)
+// ---------------------------------------------------------------------------
+
+enum CostPeriodicity {
+  MENSUAL
+  ANUAL
+}
+
+enum FixedCostCategory {
+  ALQUILER
+  SUELDOS
+  SERVICIOS
+  SOFTWARE
+  SEGUROS
+  ADMINISTRACION
+  MARKETING
+  OTROS
+}
+
+model FixedCost {
+  id            String            @id @default(cuid())
+  companyId     String
+  company       Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name          String
+  category      FixedCostCategory @default(OTROS)
+  amount        Float
+  periodicity   CostPeriodicity   @default(MENSUAL)
+  growthPct     Float             @default(0)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([companyId])
+}
+
+enum VariableCostCategory {
+  MATERIA_PRIMA
+  COMISIONES
+  EMPAQUE
+  TRANSPORTE
+  PRODUCCION
+  TRANSACCION
+  OTROS
+}
+
+/// Costo variable expresado por unidad (amountPerUnit) o como % de ventas
+/// (pctOfSales) — spec §4. Si se asocia a un producto, se suma a su costo
+/// variable unitario en el motor financiero.
+model VariableCost {
+  id            String                @id @default(cuid())
+  companyId     String
+  company       Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name          String
+  category      VariableCostCategory  @default(OTROS)
+  amountPerUnit Float?
+  pctOfSales    Float?
+  productId     String?
+  product       Product?              @relation(fields: [productId], references: [id], onDelete: SetNull)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@index([companyId])
+  @@index([productId])
+}
+
+// ---------------------------------------------------------------------------
+// Inversión inicial (§5)
+// ---------------------------------------------------------------------------
+
+enum InvestmentCategory {
+  EQUIPAMIENTO
+  INFRAESTRUCTURA
+  TECNOLOGIA
+  MOBILIARIO
+  VEHICULOS
+  LICENCIAS
+  MARKETING_INICIAL
+  CAPITAL_DE_TRABAJO
+  GASTOS_PREOPERATIVOS
+  OTROS
+}
+
+model Investment {
+  id        String             @id @default(cuid())
+  companyId String
+  company   Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category  InvestmentCategory
+  name      String
+  amount    Float
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@index([companyId])
+}
+
+// ---------------------------------------------------------------------------
+// Escenarios (§9)
+// ---------------------------------------------------------------------------
+
+enum ScenarioType {
+  PESIMISTA
+  BASE
+  OPTIMISTA
+}
+
+/// Los tres escenarios se crean automáticamente al completar el onboarding
+/// con deltas por defecto (spec §9) y quedan editables por el usuario.
+model Scenario {
+  id            String       @id @default(cuid())
+  companyId     String
+  company       Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type          ScenarioType
+  salesDeltaPct Float        @default(0)
+  priceDeltaPct Float        @default(0)
+  costDeltaPct  Float        @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([companyId, type])
+}
