@@ -40,7 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/multimoneda", label: "Multimoneda", icon: TrendingUp, enabled: false },
   { href: "/valoracion", label: "Valoración", icon: Gem, enabled: false },
   { href: "/socios", label: "Socios / Cap Table", icon: Users, enabled: false },
-  { href: "/reportes", label: "Reportes", icon: FileText, enabled: false },
+  { href: "/reportes", label: "Reportes", icon: FileText, enabled: true },
   { href: "/metas", label: "Mis Metas", icon: Target, enabled: false },
   { href: "/perfil", label: "Perfil", icon: User, enabled: true },
 ];

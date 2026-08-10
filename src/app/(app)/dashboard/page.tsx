@@ -5,6 +5,7 @@ import { KpiCard, type KpiStatus } from "@/components/shared/kpi-card";
 import { ScenarioComparisonChart, type ScenarioChartPoint } from "@/components/dashboard/scenario-comparison-chart";
 import { buildCompanySnapshot, totalInvestment } from "@/lib/engine/financial";
 import { applyScenario, DEFAULT_SCENARIO_DELTAS, type ScenarioType } from "@/lib/engine/scenarios";
+import { computeSolidityIndicator } from "@/lib/engine/solidity";
 import { toEngineFixedCosts, toEngineProducts, toEngineVariableCosts } from "@/lib/mappers";
 import { formatCurrency, formatPercent } from "@/lib/utils";
 import { SCENARIO_TYPE_LABELS } from "@/lib/constants";
@@ -52,14 +53,7 @@ export default async function DashboardPage() {
           ? "amarillo"
           : "rojo";
 
-  const soliditySignals = [margenStatus, utilidadStatus, flujoStatus, breakEvenStatus];
-  const solidity: KpiStatus = !hasData
-    ? "neutral"
-    : soliditySignals.includes("rojo")
-      ? "rojo"
-      : soliditySignals.includes("amarillo")
-        ? "amarillo"
-        : "verde";
+  const solidity = computeSolidityIndicator(hasData, snapshot);
 
   const alerts: { severity: "warning" | "danger"; message: string }[] = [];
   if (hasData) {

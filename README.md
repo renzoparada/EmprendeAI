@@ -9,12 +9,13 @@ Este repositorio contiene el **MVP + v1.1** del roadmap (ver [`docs/spec.md`](./
   determinístico (márgenes, punto de equilibrio, estado de resultados, flujo de caja), un
   Dashboard con KPIs y semáforo de solidez, Escenarios (Pesimista/Base/Optimista) editables,
   autenticación y planes FREE/STARTER.
-- **v1.1**: Precificación Inteligente + Curva de Demanda (con Pricing Engine determinístico), y
-  el Chat EMPRENDE AI (capa de IA sobre el Financial/Pricing Engine, vía Anthropic API).
+- **v1.1**: Precificación Inteligente + Curva de Demanda (con Pricing Engine determinístico), el
+  Chat EMPRENDE AI (capa de IA sobre el Financial/Pricing Engine, vía Anthropic API), y Reportes
+  básicos exportables en PDF/Excel.
 
-Los módulos de fases posteriores (Sensibilidad, Multimoneda, Valoración/Cap Table, Reportes,
-Mis Metas) aparecen en la navegación marcados como "Pronto" — están diseñados en la
-especificación pero no implementados todavía.
+Los módulos de fases posteriores (Sensibilidad, Multimoneda, Valoración/Cap Table, Mis Metas)
+aparecen en la navegación marcados como "Pronto" — están diseñados en la especificación pero no
+implementados todavía.
 
 ## Stack
 
@@ -24,6 +25,7 @@ especificación pero no implementados todavía.
 - **Tailwind CSS** + componentes propios sobre Radix UI (`src/components/ui`).
 - **Recharts** para gráficos.
 - **Anthropic SDK** (`@anthropic-ai/sdk`) para el chat EMPRENDE AI.
+- **@react-pdf/renderer** + **exceljs** para los reportes PDF/Excel (sin navegador headless).
 - **Vitest** para tests unitarios de los motores determinísticos.
 
 ## Arquitectura: separación de motores (spec §27)
@@ -112,8 +114,8 @@ src/components/chat/          Panel lateral desplegable del chat EMPRENDE AI (sp
 
 - [x] **MVP** — Onboarding, Mi Negocio, Costos, Inversión, Financial Engine, Dashboard,
       Escenarios, Auth, planes FREE/STARTER.
-- [x] **v1.1** — Precificación inteligente + curva de demanda, Chat EMPRENDE AI. *(Reportes
-      PDF/Excel básicos, listados en la spec para esta fase, quedan pendientes.)*
+- [x] **v1.1** — Precificación inteligente + curva de demanda, Chat EMPRENDE AI, Reportes
+      básicos (PDF/Excel).
 - [ ] **v1.2** — Sensibilidad + matriz de riesgos, Multimoneda + Currency Engine + costos de
       importación, narrativa IA por escenario (JSON estructurado, spec §17.4).
 - [ ] **v2.0** — Valuation Engine (DCF, múltiplos, Berkus, Scorecard, VC Method), Cap Table +
@@ -138,5 +140,7 @@ src/components/chat/          Panel lateral desplegable del chat EMPRENDE AI (sp
 - **Chat EMPRENDE AI**: una conversación por empresa (histórico persistido en
   `AIConversation`/`AIMessage`). El modelo no tiene acceso a tools ni a la base de datos; todo
   lo que puede citar viene en el snapshot que arma `buildAIContext` antes de cada llamada.
-- **Reportes PDF/Excel**: mencionados en la spec para v1.1 (§30, ítem 7) pero no incluidos en
-  esta iteración — quedan como siguiente paso dentro de v1.1.
+- **Reportes**: dos tipos (Ejecutivo / Financiero-Rentabilidad), con escenarios opcionales.
+  Los componentes de la spec §17 (matriz de riesgos, análisis de sensibilidad, exposición
+  cambiaria, narrativa IA por escenario) aparecen como checkboxes deshabilitados — llegan en
+  v1.2 junto con esos módulos.
