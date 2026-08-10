@@ -1,13 +1,15 @@
-// EMPRENDE AI — Modelo de datos (MVP + v1.1)
+// EMPRENDE AI — Modelo de datos (MVP + v1.1 + v1.2)
 //
-// Subconjunto de la sección 26 de la especificación funcional/técnica necesario
-// para el MVP (§30, fase 1: auth, onboarding, modelo del negocio, estructura de
-// costos, inversión inicial, escenarios) y la fase v1.1 (precificación
-// inteligente + curva de demanda, chat EMPRENDE AI).
+// Subconjunto de la sección 26 de la especificación funcional/técnica:
+// - MVP (§30 fase 1): auth, onboarding, modelo del negocio, estructura de
+//   costos, inversión inicial, escenarios.
+// - v1.1: precificación inteligente + curva de demanda, chat EMPRENDE AI.
+// - v1.2: tipo de cambio + costos de importación (Multimoneda), matriz de
+//   riesgos y sensibilidad se calculan en memoria (no requieren tablas).
 //
-// Entidades de fases posteriores (Shareholders, FundingRounds, Valuations,
-// Currencies, ExchangeRates, ImportCosts, ...) se agregan en v1.2/v2.0 cuando
-// esos módulos se implementen — no se crean tablas vacías por adelantado.
+// Entidades de fases posteriores (Shareholders, FundingRounds, Valuations, ...)
+// se agregan en v2.0 cuando ese módulo se implemente — no se crean tablas
+// vacías por adelantado.
 //
 // Multi-tenancy: toda tabla de negocio cuelga de Company. Las server actions
 // siempre resuelven la Company del usuario autenticado (lib/actions/auth-guard.ts)
@@ -112,6 +114,7 @@ model Company {
   investments     Investment[]
   scenarios       Scenario[]
   aiConversations AIConversation[]
+  exchangeRates   ExchangeRate[]
 
   @@index([userId])
 }
@@ -123,6 +126,13 @@ model Company {
 enum ProductType {
   PRODUCTO
   SERVICIO
+}
+
+/// Origen del costo (spec §3) — determina si el producto usa el submódulo de
+/// Costos de Importación (§4, fórmula 6.3) para calcular su costo variable.
+enum CostOrigin {
+  LOCAL
+  IMPORTADO
 }
 
 model Product {
@@ -138,11 +148,13 @@ model Product {
   commissionPct    Float       @default(0)
   taxPct           Float       @default(0)
   discountPct      Float       @default(0)
+  costOrigin       CostOrigin  @default(LOCAL)
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
   variableCostLinks VariableCost[]
   pricePoints       PricePoint[]
+  importCosts       ImportCost[]
 
   @@index([companyId])
 }
@@ -161,6 +173,56 @@ model PricePoint {
   quantity   Float
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
+
+  @@index([productId])
+}
+
+// ---------------------------------------------------------------------------
+// Multimoneda (§15) — tipo de cambio y costos de importación (§4, fórmula 6.3)
+// ---------------------------------------------------------------------------
+
+enum ExchangeRateType {
+  OFICIAL
+  PARALELO
+  PROYECTADO
+}
+
+/// Un tipo de cambio "vigente" por combinación (origen, destino, tipo) —
+/// spec §15.1: "Tipo de cambio: oficial, paralelo, y proyectado (campos
+/// separados)". Editable, no un histórico completo en el MVP+v1.2.
+model ExchangeRate {
+  id            String           @id @default(cuid())
+  companyId     String
+  company       Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  fromCurrency  String
+  toCurrency    String
+  rateType      ExchangeRateType
+  rate          Float
+  effectiveDate DateTime         @default(now())
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@unique([companyId, fromCurrency, toCurrency, rateType])
+}
+
+/// Costos de importación de un producto marcado como CostOrigin.IMPORTADO
+/// (spec §4 "Submódulo Costos de Importación"). `quantity` son las unidades
+/// que cubre este lote/embarque, para prorratear el costo total a costo por
+/// unidad (fórmula 6.3/21.13).
+model ImportCost {
+  id                  String   @id @default(cuid())
+  productId           String
+  product             Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  originCurrency      String
+  fobCost             Float
+  freight             Float    @default(0)
+  insurance           Float    @default(0)
+  tariffPct           Float    @default(0)
+  nationalizationFees Float    @default(0)
+  bankFee             Float    @default(0)
+  quantity            Float
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   @@index([productId])
 }
