@@ -3,7 +3,8 @@
 **CFO Virtual + Business Planner + Analista de Negocios con IA**
 *"El copiloto financiero y estratégico de tu negocio."*
 
-Este repositorio contiene **MVP + v1.1 + v1.2** del roadmap (ver [`docs/spec.md`](./docs/spec.md) §30):
+Este repositorio contiene **MVP + v1.1 + v1.2 + v2.0 (parcial)** del roadmap (ver
+[`docs/spec.md`](./docs/spec.md) §30):
 
 - **MVP**: Onboarding, Mi Negocio, Estructura de Costos, Inversión Inicial, un Financial Engine
   determinístico (márgenes, punto de equilibrio, estado de resultados, flujo de caja), un
@@ -14,10 +15,14 @@ Este repositorio contiene **MVP + v1.1 + v1.2** del roadmap (ver [`docs/spec.md`
   básicos exportables en PDF/Excel.
 - **v1.2**: Análisis de Sensibilidad + Matriz de Riesgos (determinística), Multimoneda + Currency
   Engine + Costos de Importación, y Narrativa IA por escenario (JSON estructurado, spec §17.4).
+- **v2.0 (parcial)**: Valuation Engine (WACC/CAPM, DCF, Múltiplos, Capitalización de utilidades,
+  Berkus, Scorecard, VC Method) con selección automática de métodos por etapa y rango
+  min-probable-max; Cap Table + Simulador de Ronda de Inversión + Simulador de Salida/Waterfall;
+  Investor Readiness Score; VAN/TIR. **Multinegocio real, Panel Admin y plan CONSULTOR quedan
+  fuera de esta fase** — ver "Alcance de v2.0" más abajo.
 
-Los módulos de fases posteriores (Valoración/Cap Table, Mis Metas, Sales Forecast) aparecen en
-la navegación marcados como "Pronto" — están diseñados en la especificación pero no
-implementados todavía.
+Los módulos que faltan (Mis Metas, Sales Forecast/embudo comercial, Dashboard para Inversores
+como pantalla separada) aparecen en la navegación marcados como "Pronto".
 
 ## Stack
 
@@ -33,13 +38,17 @@ implementados todavía.
 ## Arquitectura: separación de motores (spec §27)
 
 ```
-src/lib/engine/financial.ts     ← Financial Engine: márgenes, punto de equilibrio, P&L, flujo de caja.
+src/lib/engine/financial.ts     ← Financial Engine: márgenes, punto de equilibrio, P&L, flujo de caja, VAN/TIR.
 src/lib/engine/pricing.ts       ← Pricing Engine: curva de demanda, elasticidad, precios (§6, 21.11).
 src/lib/engine/sensitivity.ts   ← ranking de variables + heatmap precio×ventas (§9/§17.1).
 src/lib/engine/risk.ts          ← matriz de riesgos determinística, basada en reglas (§17.1).
 src/lib/engine/currency.ts      ← conversión de moneda + costo de importación (§15, 6.3/21.13).
-src/lib/engine/solidity.ts      ← semáforo de solidez, compartido por Dashboard/Reportes/Escenarios.
+src/lib/engine/valuation.ts     ← Valuation Engine: WACC/CAPM, DCF, múltiplos, Berkus, Scorecard, VC Method (§16, 21.5-21.9).
+src/lib/engine/captable.ts      ← dilución, simulador de ronda, waterfall de salida (§16.2-16.4, 21.9-21.10).
+src/lib/engine/investor-readiness.ts ← Investor Readiness Score desde señales objetivas (§16.5).
+src/lib/engine/solidity.ts      ← semáforo de solidez, compartido por Dashboard/Reportes/Escenarios/Valoración.
 src/lib/engine/scenarios.ts     ← aplica deltas de escenario sobre los inputs del engine.
+src/lib/engine/projection.ts    ← proyección de flujos con crecimiento, usada por VAN/TIR y DCF.
 src/lib/mappers.ts              ← traduce registros de Prisma → inputs de los engines.
 src/lib/ai/                     ← capa de IA: SOLO lee resultados de los engines, nunca calcula.
 ```
@@ -58,11 +67,14 @@ de la letra: arman un snapshot de solo lectura con los engines, se lo inyectan a
 herramientas de cálculo. La narrativa por escenario, además, se valida contra el esquema Zod
 exacto de la spec §17.4 antes de mostrarse — "un JSON inválido no se publica".
 
-El Valuation Engine (spec §16) se agrega en v2.0 siguiendo el mismo patrón.
+El Valuation Engine y el Cap Table Engine (v2.0) siguen el mismo patrón: un método de valoración
+que no tiene los supuestos necesarios (ej. sin múltiplo comparable cargado) queda marcado con
+`unavailableReason` en vez de rellenarse con un valor inventado (spec §13: "nunca inventar
+benchmarks").
 
 ## Modelo de datos
 
-Ver `prisma/schema.prisma` — subconjunto de la spec §26 necesario para MVP + v1.1 + v1.2.
+Ver `prisma/schema.prisma` — subconjunto de la spec §26 necesario para MVP + v1.1 + v1.2 + v2.0.
 Multi-tenancy estricta: toda tabla de negocio cuelga de `Company`, y toda Server Action
 resuelve la empresa a partir de la sesión autenticada (`src/lib/actions/guard.ts`) — nunca de
 un id recibido del cliente.
@@ -108,9 +120,11 @@ prisma/seed.ts                Datos demo
 src/app/(auth)/...            Login / registro
 src/app/onboarding/           Wizard de 4 pasos (spec §1)
 src/app/(app)/...             Shell autenticado: dashboard, mi-negocio, costos, inversion,
-                               escenarios, precios, sensibilidad, multimoneda, reportes, perfil
+                               escenarios, precios, sensibilidad, multimoneda, valoracion,
+                               socios, reportes, perfil
 src/lib/engine/               Motores determinísticos (financial, pricing, sensitivity, risk,
-                               currency, solidity, scenarios) + tests
+                               currency, valuation, captable, investor-readiness, solidity,
+                               scenarios, projection) + tests
 src/lib/ai/                   Contexto de solo lectura, prompts, narrativa por escenario y
                                cliente Anthropic
 src/lib/actions/              Server Actions (una por módulo de negocio)
@@ -130,9 +144,30 @@ src/components/chat/          Panel lateral desplegable del chat EMPRENDE AI (sp
       básicos (PDF/Excel).
 - [x] **v1.2** — Sensibilidad + matriz de riesgos, Multimoneda + Currency Engine + costos de
       importación, narrativa IA por escenario (JSON estructurado, spec §17.4).
-- [ ] **v2.0** — Valuation Engine (DCF, múltiplos, Berkus, Scorecard, VC Method), Cap Table +
-      Simulador de rondas + Waterfall, Investor Readiness Score, Dashboard para Inversores,
-      Multinegocio, Panel Admin, plan CONSULTOR.
+- [x] **v2.0 (parcial)** — Valuation Engine (DCF, múltiplos, capitalización de utilidades,
+      Berkus, Scorecard, VC Method), Cap Table + Simulador de Ronda + Waterfall de salida,
+      Investor Readiness Score, VAN/TIR.
+- [ ] **v2.0 (pendiente)** — Dashboard para Inversores como pantalla dedicada (spec §19; hoy sus
+      elementos viven repartidos en Valoración/Socios/Dashboard), Multinegocio real (cambiar de
+      empresa activa), Panel Administrador, plan CONSULTOR.
+
+## Alcance de v2.0 — qué quedó fuera y por qué
+
+La sección 14 del roadmap (§30) agrupa **Multinegocio, Panel Admin y plan CONSULTOR** junto con
+Valoración/Cap Table/Investor Readiness (secciones 11-13). Se decidió separarlos:
+
+- **Multinegocio, Panel Admin y plan CONSULTOR** son una superficie de producto distinta —
+  gestión de cuentas, suscripciones, pagos y soporte a nivel plataforma, no cálculo financiero
+  del negocio del usuario — y requieren su propio diseño de datos (facturación, roles de staff,
+  relación consultor-cliente) que no estaba especificado en detalle. Construirlos de forma
+  apresurada habría sido peor que dejarlos pendientes con el alcance documentado.
+- **Valoración, Cap Table e Investor Readiness Score** (11-13) son el diferenciador central del
+  producto para esta fase, tienen fórmulas exactas en la spec (§21.5-21.10) y ya siguen el mismo
+  patrón de motor determinístico + tests que el resto de la plataforma — por eso se priorizaron.
+
+`lib/plans.ts` sigue marcando PRO/BUSINESS/CONSULTOR como `available: false` (no hay cobro ni
+gating real todavía para ningún plan) — Valoración y Cap Table están disponibles para cualquier
+usuario autenticado, igual que el resto de los módulos construidos hasta ahora.
 
 ## Notas de diseño (simplificaciones documentadas)
 
@@ -167,3 +202,14 @@ src/components/chat/          Panel lateral desplegable del chat EMPRENDE AI (sp
   disponibles interactivamente en Escenarios y Sensibilidad) — integrarlos al PDF es un
   siguiente paso natural, no incluido en esta iteración para mantener la exportación rápida y
   sin costo de IA por descarga.
+- **DCF**: la Utilidad/EBIT mensual del Financial Engine se anualiza (×12) y se proyecta con una
+  tasa de crecimiento editable; depreciación, CAPEX y Δ capital de trabajo se asumen en 0 (no
+  hay un cronograma de activos ni un balance modelado todavía) — el engine sí los soporta
+  (`computeFreeCashFlow`), listo para cuando existan esos módulos.
+- **Cap Table**: preferentes no-participantes (reciben su preferencia de liquidación y no
+  comparten además el remanente) — el modelo más simple y común; SAFE/nota convertible
+  (mencionado en spec §16.3 como soporte opcional) no está implementado todavía.
+- **Investor Readiness Score**: usa las señales disponibles hoy (completitud de datos, margen,
+  flujo de caja, concentración de producto, riesgos activos). La spec §16.5 también menciona
+  consistencia de datos históricos multi-mes y documentación cargada — se sumarán como señales
+  cuando existan esos módulos (no hay carga de documentos ni historial mensual todavía).

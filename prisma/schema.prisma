@@ -1,4 +1,4 @@
-// EMPRENDE AI — Modelo de datos (MVP + v1.1 + v1.2)
+// EMPRENDE AI — Modelo de datos (MVP + v1.1 + v1.2 + v2.0)
 //
 // Subconjunto de la sección 26 de la especificación funcional/técnica:
 // - MVP (§30 fase 1): auth, onboarding, modelo del negocio, estructura de
@@ -6,10 +6,9 @@
 // - v1.1: precificación inteligente + curva de demanda, chat EMPRENDE AI.
 // - v1.2: tipo de cambio + costos de importación (Multimoneda), matriz de
 //   riesgos y sensibilidad se calculan en memoria (no requieren tablas).
-//
-// Entidades de fases posteriores (Shareholders, FundingRounds, Valuations, ...)
-// se agregan en v2.0 cuando ese módulo se implemente — no se crean tablas
-// vacías por adelantado.
+// - v2.0: valoración (DCF/múltiplos/Berkus/Scorecard/VC Method) y Cap Table
+//   + simulador de rondas + waterfall de salida. Multinegocio real, Panel
+//   Admin y plan CONSULTOR quedan fuera de esta fase — ver README.
 //
 // Multi-tenancy: toda tabla de negocio cuelga de Company. Las server actions
 // siempre resuelven la Company del usuario autenticado (lib/actions/auth-guard.ts)
@@ -108,13 +107,17 @@ model Company {
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
 
-  products        Product[]
-  fixedCosts      FixedCost[]
-  variableCosts   VariableCost[]
-  investments     Investment[]
-  scenarios       Scenario[]
-  aiConversations AIConversation[]
-  exchangeRates   ExchangeRate[]
+  products             Product[]
+  fixedCosts           FixedCost[]
+  variableCosts        VariableCost[]
+  investments          Investment[]
+  scenarios            Scenario[]
+  aiConversations      AIConversation[]
+  exchangeRates        ExchangeRate[]
+  valuationAssumptions ValuationAssumptions?
+  shareholders         Shareholder[]
+  fundingRounds        FundingRound[]
+  capTableEntries      CapTableEntry[]
 
   @@index([userId])
 }
@@ -380,4 +383,126 @@ model AIMessage {
   createdAt      DateTime       @default(now())
 
   @@index([conversationId])
+}
+
+// ---------------------------------------------------------------------------
+// Valoración de empresas (§16.1, fórmulas 21.5-21.9)
+// ---------------------------------------------------------------------------
+
+/// Supuestos de valoración editables por el usuario — spec §21.5: "permitir
+/// tasa manual justificada, marcada como supuesto del usuario". Un registro
+/// por empresa, con valores por defecto razonables y nunca inventados por IA.
+model ValuationAssumptions {
+  id        String  @id @default(cuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // CAPM / WACC (21.5)
+  riskFreeRatePct Float @default(5)
+  beta            Float @default(1)
+  marketReturnPct Float @default(10)
+  costOfDebtPct   Float @default(8)
+  debtRatioPct    Float @default(0)
+
+  // DCF (21.6)
+  fclGrowthPct      Float @default(5)
+  terminalGrowthPct Float @default(3)
+  projectionYears   Int   @default(5)
+
+  // Múltiplos y capitalización de utilidades (21.7) — null = sin dato
+  // confiable, nunca se inventa un múltiplo (spec §13/§21.5).
+  evEbitdaMultiple Float?
+  evSalesMultiple  Float?
+  peMultiple       Float?
+
+  // Berkus (21.8) — cada factor respeta `berkusFactorCap` en el engine.
+  berkusFactorCap     Float @default(500000)
+  berkusIdea          Float @default(0)
+  berkusPrototype     Float @default(0)
+  berkusTeam          Float @default(0)
+  berkusRelationships Float @default(0)
+  berkusInitialSales  Float @default(0)
+
+  // Scorecard (21.8) — 100% = igual al comparable promedio.
+  scorecardComparableAvg          Float?
+  scorecardManagementScorePct     Float  @default(100)
+  scorecardOpportunityScorePct    Float  @default(100)
+  scorecardProductScorePct        Float  @default(100)
+  scorecardCompetitionScorePct    Float  @default(100)
+  scorecardMarketingScorePct      Float  @default(100)
+  scorecardNeedInvestmentScorePct Float  @default(100)
+
+  // VC Method (21.8)
+  vcExitValueProjected     Float?
+  vcRequiredReturnMultiple Float  @default(10)
+  vcInvestmentAmount       Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Socios y Cap Table (§16.2-16.4, fórmulas 21.9-21.10)
+// ---------------------------------------------------------------------------
+
+enum ShareholderType {
+  FOUNDER
+  INVERSIONISTA
+  ESOP
+  OTRO
+}
+
+model Shareholder {
+  id        String          @id @default(cuid())
+  companyId String
+  company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name      String
+  type      ShareholderType @default(FOUNDER)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  capTableEntries CapTableEntry[]
+
+  @@index([companyId])
+}
+
+/// Ronda de inversión ya cerrada/registrada (histórico). El simulador de
+/// rondas (spec §16.3) no persiste nada — solo esta tabla, cuando el
+/// usuario decide "confirmar" una ronda simulada.
+model FundingRound {
+  id                String   @id @default(cuid())
+  companyId         String
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name              String
+  date              DateTime @default(now())
+  preMoneyValuation Float
+  investmentAmount  Float
+  pricePerShare     Float
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  capTableEntries CapTableEntry[]
+
+  @@index([companyId])
+}
+
+/// Participación accionaria de un socio (spec §16.2). `isPreferred` +
+/// `liquidationPreferenceMultiple` alimentan el waterfall de salida (21.10).
+model CapTableEntry {
+  id                            String        @id @default(cuid())
+  companyId                     String
+  company                       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  shareholderId                 String
+  shareholder                   Shareholder   @relation(fields: [shareholderId], references: [id], onDelete: Cascade)
+  shares                        Float
+  isPreferred                   Boolean       @default(false)
+  liquidationPreferenceMultiple Float         @default(1)
+  investedAmount                Float         @default(0)
+  fundingRoundId                String?
+  fundingRound                  FundingRound? @relation(fields: [fundingRoundId], references: [id], onDelete: SetNull)
+  createdAt                     DateTime      @default(now())
+  updatedAt                     DateTime      @updatedAt
+
+  @@index([companyId])
+  @@index([shareholderId])
 }
