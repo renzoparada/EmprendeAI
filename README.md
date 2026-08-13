@@ -15,11 +15,12 @@ Este repositorio contiene **MVP + v1.1 + v1.2 + v2.0 (parcial)** del roadmap (ve
   básicos exportables en PDF/Excel.
 - **v1.2**: Análisis de Sensibilidad + Matriz de Riesgos (determinística), Multimoneda + Currency
   Engine + Costos de Importación, y Narrativa IA por escenario (JSON estructurado, spec §17.4).
-- **v2.0 (parcial)**: Valuation Engine (WACC/CAPM, DCF, Múltiplos, Capitalización de utilidades,
-  Berkus, Scorecard, VC Method) con selección automática de métodos por etapa y rango
-  min-probable-max; Cap Table + Simulador de Ronda de Inversión + Simulador de Salida/Waterfall;
-  Investor Readiness Score; VAN/TIR. **Multinegocio real, Panel Admin y plan CONSULTOR quedan
-  fuera de esta fase** — ver "Alcance de v2.0" más abajo.
+- **v2.0**: Valuation Engine (WACC/CAPM, DCF, Múltiplos, Capitalización de utilidades, Berkus,
+  Scorecard, VC Method) con selección automática de métodos por etapa y rango min-probable-max;
+  Cap Table + Simulador de Ronda de Inversión + Simulador de Salida/Waterfall; Investor
+  Readiness Score; VAN/TIR; **Multinegocio** (varias empresas por cuenta, con límite real por
+  plan); **Panel Admin** (usuarios, empresas, uso de IA/tokens); **plan CONSULTOR** habilitado.
+  Ver "Alcance de v2.0" más abajo para lo que sigue pendiente dentro de esta fase.
 
 Los módulos que faltan (Mis Metas, Sales Forecast/embudo comercial, Dashboard para Inversores
 como pantalla separada) aparecen en la navegación marcados como "Pronto".
@@ -79,6 +80,18 @@ Multi-tenancy estricta: toda tabla de negocio cuelga de `Company`, y toda Server
 resuelve la empresa a partir de la sesión autenticada (`src/lib/actions/guard.ts`) — nunca de
 un id recibido del cliente.
 
+**Multinegocio**: un `User` puede tener varias `Company`. La "empresa activa" se guarda en una
+cookie httpOnly (`emprendeai_active_company`, ver `resolveActiveCompany` en `guard.ts`) — la
+cookie es solo una preferencia de navegación, nunca la fuente de verdad: siempre se valida que
+la empresa pertenezca al usuario autenticado (`where: { id, userId }`) antes de usarla, y si no
+pertenece o no existe, cae de vuelta a la primera empresa del usuario. El límite de empresas por
+plan (`MAX_COMPANIES_PER_PLAN` en `lib/plans.ts`) se aplica en `completeOnboarding` — la única
+regla de plan con enforcement real hoy.
+
+**Panel Admin**: `User.role` (`USER` | `ADMIN`) gatea `/admin` vía `requireAdmin()` (siempre
+relee el rol desde la base de datos, nunca confía en el cliente). Vive fuera del grupo de rutas
+`(app)` porque no requiere que el admin tenga una empresa propia.
+
 ## Requisitos
 
 - Node.js 20+
@@ -97,7 +110,8 @@ cp .env.example .env
 docker compose up -d postgres
 npm install
 npx prisma migrate dev
-npm run db:seed        # crea demo@emprendeai.com / demo1234 con datos de ejemplo
+npm run db:seed        # crea demo@emprendeai.com / demo1234 (con datos de ejemplo)
+                        # y admin@emprendeai.com / admin1234 (Panel Admin, sin empresa propia)
 
 npm run dev             # http://localhost:3000
 ```
@@ -116,24 +130,27 @@ npm run dev             # http://localhost:3000
 
 ```
 prisma/schema.prisma          Modelo de datos
-prisma/seed.ts                Datos demo
+prisma/seed.ts                Datos demo (usuario + admin)
 src/app/(auth)/...            Login / registro
-src/app/onboarding/           Wizard de 4 pasos (spec §1)
+src/app/onboarding/           Wizard de 4 pasos (spec §1) — primera empresa
 src/app/(app)/...             Shell autenticado: dashboard, mi-negocio, costos, inversion,
                                escenarios, precios, sensibilidad, multimoneda, valoracion,
-                               socios, reportes, perfil
+                               socios, reportes, negocios (Multinegocio), perfil
+src/app/admin/                Panel Admin (spec §25) — fuera de (app), su propio layout/guard
 src/lib/engine/               Motores determinísticos (financial, pricing, sensitivity, risk,
                                currency, valuation, captable, investor-readiness, solidity,
                                scenarios, projection) + tests
 src/lib/ai/                   Contexto de solo lectura, prompts, narrativa por escenario y
                                cliente Anthropic
-src/lib/actions/              Server Actions (una por módulo de negocio)
+src/lib/actions/              Server Actions (una por módulo de negocio, + admin-actions.ts,
+                               company-actions.ts para Multinegocio)
 src/lib/reports/              Agregación de datos + generadores PDF/Excel
 src/lib/mappers.ts            Prisma → Engines (incluye integración de costos de importación)
-src/lib/plans.ts              Catálogo de planes SaaS (spec §25)
+src/lib/plans.ts              Catálogo de planes SaaS + límites de empresas (spec §25/§20)
 src/components/ui/            Primitivos de UI (Button, Card, Dialog, Table, ...)
 src/components/shared/        KpiCard (con modal "¿Qué significa?/...") y DeleteButton
 src/components/chat/          Panel lateral desplegable del chat EMPRENDE AI (spec §23.8)
+src/components/admin/         UI del Panel Admin
 ```
 
 ## Roadmap (spec §30)
@@ -144,30 +161,44 @@ src/components/chat/          Panel lateral desplegable del chat EMPRENDE AI (sp
       básicos (PDF/Excel).
 - [x] **v1.2** — Sensibilidad + matriz de riesgos, Multimoneda + Currency Engine + costos de
       importación, narrativa IA por escenario (JSON estructurado, spec §17.4).
-- [x] **v2.0 (parcial)** — Valuation Engine (DCF, múltiplos, capitalización de utilidades,
-      Berkus, Scorecard, VC Method), Cap Table + Simulador de Ronda + Waterfall de salida,
-      Investor Readiness Score, VAN/TIR.
-- [ ] **v2.0 (pendiente)** — Dashboard para Inversores como pantalla dedicada (spec §19; hoy sus
-      elementos viven repartidos en Valoración/Socios/Dashboard), Multinegocio real (cambiar de
-      empresa activa), Panel Administrador, plan CONSULTOR.
+- [x] **v2.0** — Valuation Engine (DCF, múltiplos, capitalización de utilidades, Berkus,
+      Scorecard, VC Method), Cap Table + Simulador de Ronda + Waterfall de salida, Investor
+      Readiness Score, VAN/TIR, Multinegocio (cambio de empresa activa + límite por plan),
+      Panel Admin (usuarios/empresas/uso de IA), plan CONSULTOR habilitado.
+- [ ] **Pendiente, fuera de todas las fases** — Dashboard para Inversores como pantalla dedicada
+      (spec §19; hoy sus elementos viven repartidos en Valoración/Socios/Dashboard), Mis Metas,
+      Sales Forecast/embudo comercial, Business Plan con IA (spec §18).
 
 ## Alcance de v2.0 — qué quedó fuera y por qué
 
-La sección 14 del roadmap (§30) agrupa **Multinegocio, Panel Admin y plan CONSULTOR** junto con
-Valoración/Cap Table/Investor Readiness (secciones 11-13). Se decidió separarlos:
+**Multinegocio, Panel Admin y plan CONSULTOR ya están implementados** (spec §30 ítem 14), pero
+con un recorte de alcance deliberado y documentado:
 
-- **Multinegocio, Panel Admin y plan CONSULTOR** son una superficie de producto distinta —
-  gestión de cuentas, suscripciones, pagos y soporte a nivel plataforma, no cálculo financiero
-  del negocio del usuario — y requieren su propio diseño de datos (facturación, roles de staff,
-  relación consultor-cliente) que no estaba especificado en detalle. Construirlos de forma
-  apresurada habría sido peor que dejarlos pendientes con el alcance documentado.
-- **Valoración, Cap Table e Investor Readiness Score** (11-13) son el diferenciador central del
-  producto para esta fase, tienen fórmulas exactas en la spec (§21.5-21.10) y ya siguen el mismo
-  patrón de motor determinístico + tests que el resto de la plataforma — por eso se priorizaron.
+- **Panel Admin** cubre usuarios (con cambio de plan manual), empresas y uso de IA/tokens — las
+  tres cosas que se pueden mostrar con datos reales. **No incluye Pagos ni Suscripciones**: no
+  hay ninguna pasarela de pago integrada (Stripe u otra), así que construir esas pantallas
+  habría significado fabricar datos de facturación falsos — algo que va directamente en contra
+  del principio central de la plataforma (spec §0.3: nunca inventar una cifra). Cuando se
+  integre un proveedor de pagos real, esas pantallas se agregan sobre datos reales.
+- **Multinegocio** es real: cambio de empresa activa (cookie validada contra la DB en cada
+  request, nunca confiada a ciegas), creación de nuevas empresas, y el único límite de plan con
+  enforcement real de toda la plataforma (`MAX_COMPANIES_PER_PLAN`). Lo que falta es
+  **consolidación** entre empresas (reportes agregados multi-empresa, sucursales/unidades de
+  negocio dentro de una misma empresa) — spec §20 lo menciona, pero es un módulo de reporting
+  aparte, no incluido aquí.
+- **Plan CONSULTOR** hoy significa, en la práctica, "Multinegocio sin límite bajo la misma
+  cuenta" — igual que BUSINESS. **Lo que NO está implementado** es que un consultor acceda a la
+  cuenta de un cliente que inició sesión por su cuenta (colaboración cross-account con roles de
+  permiso). Eso requeriría rediseñar `requireCompany()` y, en teoría, cada una de las ~40 Server
+  Actions que asumen propiedad estricta (`company.userId === session.user.id`) para soportar
+  "es dueño O tiene acceso otorgado" — un cambio ancho en código de seguridad crítico que no se
+  hizo de forma apurada por el riesgo real de introducir un agujero de multi-tenancy. Queda como
+  el siguiente paso natural, con diseño explícito de permisos (viewer/editor por empresa).
 
-`lib/plans.ts` sigue marcando PRO/BUSINESS/CONSULTOR como `available: false` (no hay cobro ni
-gating real todavía para ningún plan) — Valoración y Cap Table están disponibles para cualquier
-usuario autenticado, igual que el resto de los módulos construidos hasta ahora.
+`lib/plans.ts` ahora marca los 5 planes como `available: true` — todas las features que
+enumeran ya existen en la plataforma (Chat IA, Reportes, Valoración, Cap Table no estaban
+realmente gateadas por plan de todos modos). El único enforcement real de plan sigue siendo el
+límite de empresas.
 
 ## Notas de diseño (simplificaciones documentadas)
 
@@ -178,9 +209,8 @@ usuario autenticado, igual que el resto de los módulos construidos hasta ahora.
 - **Tasa de impuesto**: es un campo editable en Perfil (`Company.taxRatePct`), marcado como
   supuesto — no viene de la especificación original pero es necesario para calcular Utilidad
   Neta (spec §8) sin inventar el dato silenciosamente (spec §0.3).
-- **Un negocio por usuario**: el modelo de datos soporta multi-empresa (`Company.userId`), pero
-  la app resuelve siempre la primera empresa del usuario. Multi-empresa real es plan BUSINESS
-  (spec §20/§25, v2.0).
+- **Multinegocio**: implementado (ver sección "Alcance de v2.0"). No incluye consolidación de
+  reportes entre empresas ni sucursales/unidades de negocio dentro de una misma empresa.
 - **Curva de demanda**: requiere al menos 2 puntos históricos (precio, cantidad) con precios
   distintos para ajustar la regresión; si no hay suficientes datos, los precios "óptimos"
   simplemente no se muestran — nunca se inventa una curva.

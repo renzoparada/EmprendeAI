@@ -35,14 +35,23 @@ enum PlanCode {
   CONSULTOR
 }
 
+/// Rol de plataforma (spec §25, Panel Administrador) — no confundir con el
+/// tipo de usuario del negocio (`UserType`, más abajo). Todo usuario nuevo
+/// es USER; ADMIN se otorga manualmente (ver prisma/seed.ts).
+enum PlatformRole {
+  USER
+  ADMIN
+}
+
 model User {
-  id           String   @id @default(cuid())
+  id           String       @id @default(cuid())
   name         String
-  email        String   @unique
+  email        String       @unique
   passwordHash String
-  planCode     PlanCode @default(FREE)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  planCode     PlanCode     @default(FREE)
+  role         PlatformRole @default(USER)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   companies Company[]
 }
@@ -374,12 +383,18 @@ model AIConversation {
   @@index([companyId])
 }
 
+/// `inputTokens`/`outputTokens` solo se completan en mensajes ASSISTANT
+/// (vienen de `response.usage` de la API de Anthropic) — alimentan el Panel
+/// Admin › Uso de IA (spec §25 "uso de IA/tokens"). `null` en mensajes USER
+/// o si la IA no estaba configurada cuando se generó la respuesta.
 model AIMessage {
   id             String         @id @default(cuid())
   conversationId String
   conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   role           AIMessageRole
   content        String
+  inputTokens    Int?
+  outputTokens   Int?
   createdAt      DateTime       @default(now())
 
   @@index([conversationId])

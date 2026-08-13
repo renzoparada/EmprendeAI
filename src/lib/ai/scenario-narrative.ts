@@ -67,11 +67,11 @@ export async function generateScenarioNarrative(ctx: ScenarioNarrativeContext): 
 
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const raw = await askEmprendeAI(
+      const response = await askEmprendeAI(
         "Devuelves únicamente JSON válido, sin texto adicional, sin markdown.",
         [{ role: "USER", content: attempt === 0 ? prompt : `${prompt}\n\nTu respuesta anterior no era JSON válido. Responde SOLO el objeto JSON.` }]
       );
-      const parsed = ScenarioNarrativeSchema.safeParse(extractJson(raw));
+      const parsed = ScenarioNarrativeSchema.safeParse(extractJson(response.text));
       if (parsed.success) {
         return { narrative: parsed.data, missingData: [] };
       }

@@ -21,13 +21,19 @@ export interface ChatTurn {
   content: string;
 }
 
+export interface AIResponse {
+  text: string;
+  usage: { inputTokens: number; outputTokens: number };
+}
+
 /**
  * Llama al modelo con el system prompt (que ya incluye los datos del
  * negocio, ver lib/ai/prompt.ts) y el historial de la conversación. No
  * expone ninguna tool/función al modelo — no puede ejecutar cálculos ni
- * consultar la base de datos por su cuenta (spec §27).
+ * consultar la base de datos por su cuenta (spec §27). Devuelve el uso de
+ * tokens de la respuesta para el Panel Admin (spec §25 "uso de IA/tokens").
  */
-export async function askEmprendeAI(systemPrompt: string, history: ChatTurn[]): Promise<string> {
+export async function askEmprendeAI(systemPrompt: string, history: ChatTurn[]): Promise<AIResponse> {
   const anthropic = getClient();
   const model = process.env.ANTHROPIC_MODEL || DEFAULT_MODEL;
 
@@ -42,5 +48,10 @@ export async function askEmprendeAI(systemPrompt: string, history: ChatTurn[]): 
   });
 
   const textBlock = response.content.find((block) => block.type === "text");
-  return textBlock && "text" in textBlock ? textBlock.text : "No pude generar una respuesta. Intenta de nuevo.";
+  const text = textBlock && "text" in textBlock ? textBlock.text : "No pude generar una respuesta. Intenta de nuevo.";
+
+  return {
+    text,
+    usage: { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens },
+  };
 }

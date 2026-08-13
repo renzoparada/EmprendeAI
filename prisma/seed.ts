@@ -20,6 +20,18 @@ async function main() {
     create: { name: "Usuario Demo", email, passwordHash, planCode: "STARTER" },
   });
 
+  // Usuario administrador para probar el Panel Admin (spec §25) — sin
+  // empresa propia, solo acceso a /admin.
+  const adminEmail = "admin@emprendeai.com";
+  const adminPasswordHash = await bcrypt.hash("admin1234", 10);
+  await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: { role: "ADMIN" },
+    create: { name: "Admin EMPRENDE AI", email: adminEmail, passwordHash: adminPasswordHash, planCode: "BUSINESS", role: "ADMIN" },
+  });
+
+  console.log(`Admin: ${adminEmail} / admin1234 (sin empresa propia, entra directo a /admin)`);
+
   const existingCompany = await prisma.company.findFirst({ where: { userId: user.id } });
   if (existingCompany) {
     console.log("La empresa demo ya existe, no se vuelve a crear.");
