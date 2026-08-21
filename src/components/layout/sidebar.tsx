@@ -21,6 +21,7 @@ import {
   LineChart,
   BookOpen,
   HandCoins,
+  Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,7 @@ interface NavItem {
 // (§30) quedan visibles pero deshabilitados con badge "Próximamente".
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true },
+  { href: "/kpis", label: "Biblioteca de KPIs", icon: Gauge, enabled: true },
   { href: "/mi-negocio", label: "Mi Negocio", icon: Briefcase, enabled: true },
   { href: "/costos", label: "Estructura de Costos", icon: Wallet, enabled: true },
   { href: "/inversion", label: "Inversión Inicial", icon: Landmark, enabled: true },

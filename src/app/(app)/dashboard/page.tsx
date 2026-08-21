@@ -1,11 +1,16 @@
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { requireCompany } from "@/lib/actions/guard";
 import { prisma } from "@/lib/db";
 import { KpiCard, type KpiStatus } from "@/components/shared/kpi-card";
 import { ScenarioComparisonChart, type ScenarioChartPoint } from "@/components/dashboard/scenario-comparison-chart";
+import { AlertsList } from "@/components/dashboard/alerts-list";
 import { buildCompanySnapshot, totalInvestment } from "@/lib/engine/financial";
 import { applyScenario, DEFAULT_SCENARIO_DELTAS, type ScenarioType } from "@/lib/engine/scenarios";
 import { computeSolidityIndicator } from "@/lib/engine/solidity";
+import { buildAlerts, type ProductProfitability } from "@/lib/engine/alerts";
+import { computeCAC, computeLTV, computeLtvCacRatio } from "@/lib/engine/funnel";
+import { buildAmortizationSchedule, summarizeLoan } from "@/lib/engine/financing";
+import { computeGoalPlan, computeGoalProgressPct } from "@/lib/engine/goals";
 import { toEngineFixedCosts, toEngineProducts, toEngineVariableCosts } from "@/lib/mappers";
 import { formatCurrency, formatPercent } from "@/lib/utils";
 import { SCENARIO_TYPE_LABELS } from "@/lib/constants";
@@ -14,12 +19,15 @@ import { Card, CardContent } from "@/components/ui/card";
 export default async function DashboardPage() {
   const { company } = await requireCompany();
 
-  const [products, fixedCosts, variableCosts, investments, scenarios] = await Promise.all([
+  const [products, fixedCosts, variableCosts, investments, scenarios, funnel, financingPlans, goal] = await Promise.all([
     prisma.product.findMany({ where: { companyId: company.id } }),
     prisma.fixedCost.findMany({ where: { companyId: company.id } }),
     prisma.variableCost.findMany({ where: { companyId: company.id } }),
     prisma.investment.findMany({ where: { companyId: company.id } }),
     prisma.scenario.findMany({ where: { companyId: company.id } }),
+    prisma.salesFunnel.findUnique({ where: { companyId: company.id } }),
+    prisma.financingPlan.findMany({ where: { companyId: company.id } }),
+    prisma.goal.findUnique({ where: { companyId: company.id } }),
   ]);
 
   const engineProducts = toEngineProducts(products);
@@ -55,23 +63,64 @@ export default async function DashboardPage() {
 
   const solidity = computeSolidityIndicator(hasData, snapshot);
 
-  const alerts: { severity: "warning" | "danger"; message: string }[] = [];
-  if (hasData) {
-    if (snapshot.cashFlow.alertaFlujoNegativo) {
-      alerts.push({ severity: "danger", message: "Tu flujo de caja del mes es negativo. Revisa costos fijos o el ritmo de ventas." });
-    }
-    if (snapshot.statement.margenNetoPct < 10) {
-      alerts.push({ severity: "warning", message: `Tu margen neto (${formatPercent(snapshot.statement.margenNetoPct)}) está por debajo del 10%.` });
-    }
-    if (Number.isFinite(snapshot.breakEven.amount) && snapshot.statement.ventas < snapshot.breakEven.amount) {
-      alerts.push({
-        severity: "warning",
-        message: `Tus ventas (${formatCurrency(snapshot.statement.ventas, company.currency)}) están por debajo del punto de equilibrio (${formatCurrency(snapshot.breakEven.amount, company.currency)}).`,
-      });
-    }
-  } else {
-    alerts.push({ severity: "warning", message: "Todavía no cargaste productos ni costos. Ve a Mi Negocio y Estructura de Costos para activar el dashboard." });
-  }
+  const productProfitability: ProductProfitability[] = snapshot.economics.map((e) => ({
+    productId: e.productId,
+    name: engineProducts.find((p) => p.id === e.productId)?.name ?? "—",
+    unitMarginPct: e.unitMarginPct,
+  }));
+
+  const funnelAlertInput =
+    funnel && funnel.leads > 0
+      ? {
+          ltvCac: computeLtvCacRatio(
+            computeLTV(funnel.avgTicket, funnel.purchaseFrequencyPerYear, funnel.customerLifetimeYears),
+            computeCAC(funnel.marketingSpend, funnel.ventas)
+          ),
+        }
+      : null;
+
+  const monthlyDebtService = financingPlans.reduce((sum, plan) => {
+    const schedule = buildAmortizationSchedule({
+      principal: plan.principal,
+      annualInterestRatePct: plan.annualInterestRatePct,
+      termMonths: plan.termMonths,
+      gracePeriodMonths: plan.gracePeriodMonths,
+      graceType: plan.graceType,
+    });
+    return sum + summarizeLoan(schedule).cuotaMensual;
+  }, 0);
+
+  const totalUnits = engineProducts.reduce((sum, p) => sum + p.unitsSoldMonthly, 0);
+  const goalAvgTicket = totalUnits > 0 ? snapshot.aggregate.ventas / totalUnits : (funnel?.avgTicket ?? 0);
+  const goalPlan = goal
+    ? computeGoalPlan({
+        targetType: goal.targetType,
+        targetAmount: goal.targetAmount,
+        contributionMarginRatio: snapshot.aggregate.contributionMarginRatio,
+        fixedCostsMonthly: engineFixedCosts.reduce((sum, c) => sum + c.amountMonthly, 0),
+        taxRatePct: company.taxRatePct,
+        avgTicket: goalAvgTicket,
+        unitsPerCustomer: goal.unitsPerCustomer,
+        targetConversionPct: goal.targetConversionPct,
+        leadsPerVendedor: goal.leadsPerVendedor,
+      })
+    : null;
+  const goalAlertInput =
+    goal && goalPlan
+      ? {
+          progressPct: computeGoalProgressPct(goal.targetType === "VENTAS" ? snapshot.statement.ventas : snapshot.statement.utilidadNeta, goal.targetAmount),
+          targetType: goal.targetType,
+        }
+      : null;
+
+  const alerts = buildAlerts({
+    hasData,
+    snapshot: hasData ? snapshot : null,
+    products: productProfitability,
+    funnel: funnelAlertInput,
+    financing: monthlyDebtService > 0 ? { monthlyDebtService } : null,
+    goal: goalAlertInput,
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -92,21 +141,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {alerts.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {alerts.map((alert, i) => (
-            <div
-              key={i}
-              className={`flex items-start gap-2 rounded-lg border px-4 py-3 text-sm ${
-                alert.severity === "danger" ? "border-red-200 bg-red-50 text-red-800" : "border-amber-200 bg-amber-50 text-amber-800"
-              }`}
-            >
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{alert.message}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <AlertsList alerts={alerts} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard

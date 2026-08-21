@@ -24,9 +24,10 @@ Este repositorio contiene **MVP + v1.1 + v1.2 + v2.0** del roadmap (ver
   inverso: cuánto vender/prospectar para alcanzar una meta, con plan de acción por IA);
   **Dashboard para Inversores** como pantalla dedicada; **Business Plan con IA** (secciones
   cualitativas redactadas con ayuda de IA + secciones financieras renderizadas en vivo desde los
-  motores); y **Financiamiento** (préstamo/socios/inversionista/crowdfunding/capital propio con
-  amortización, período de gracia, costo financiero, flujo de caja con deuda y ROI apalancado).
-  Ver "Alcance de v2.0" más abajo para los recortes de esta fase.
+  motores); **Financiamiento** (préstamo/socios/inversionista/crowdfunding/capital propio con
+  amortización, período de gracia, costo financiero, flujo de caja con deuda y ROI apalancado);
+  y **KPIs y Alertas ampliadas** (biblioteca de ~23 KPIs por categoría + Alert Engine ampliado
+  con explicación por IA). Ver "Alcance de v2.0" más abajo para los recortes de esta fase.
 
 No queda ningún módulo del roadmap MVP→v2.0 marcado como "Pronto" en la navegación — lo que
 falta (Pagos/Suscripciones reales y acceso cross-account del plan CONSULTOR) está documentado
@@ -178,16 +179,22 @@ src/components/admin/         UI del Panel Admin
 - [x] **Financiamiento** (spec §14) — simulador de préstamo/socios/inversionista/crowdfunding/
       capital propio: amortización sistema francés con período de gracia (solo interés o total),
       cuota, intereses, costo financiero, flujo de caja con servicio de deuda, ROI apalancado.
+- [x] **KPIs y Alertas ampliadas** (spec §12) — Biblioteca de KPIs (`/kpis`) con los ~23
+      indicadores Financieros/Comerciales/Operativos/Marketing de la spec, cada uno calculado por
+      su motor o marcado explícitamente "no disponible" con la razón; Alert Engine ampliado en el
+      Dashboard (producto más/menos rentable, margen unitario negativo, LTV/CAC bajo, servicio de
+      deuda mayor al flujo de caja, meta lejos de cumplirse, además de las 3 alertas originales) y
+      explicación conversacional por IA por alerta (JSON validado, spec §17.4).
 - [ ] **Pendiente, fuera de todas las fases** — Pagos/Suscripciones reales (requiere pasarela de
       pago integrada) y acceso cross-account del plan CONSULTOR a cuentas de clientes (requiere
       rediseñar el modelo de permisos). Ver "Alcance de v2.0" para el detalle de por qué. También
       quedan sin construir, por requerir datos o modelos que hoy no existen: Benchmarking
       sectorial (§13, necesita una fuente de benchmarks real — no se inventan), Benchmarking
       temporal/Simulación de negocios multi-periodo (§20, necesita snapshots históricos
-      mensuales, hoy el modelo es "estado actual"), biblioteca ampliada de KPIs/alertas con
-      explicación por IA (§12, hoy son 3 alertas con texto estático), módulo de presupuesto y
-      campañas de Marketing (§14, hoy solo existe CAC/CPL/LTV vía el embudo comercial), y una
-      página de Metodología/Fundamento teórico (§22, hoy vive como JSDoc en cada engine).
+      mensuales, hoy el modelo es "estado actual" — este mismo motivo bloquea las alertas de
+      tendencia de §12, ej. "costos +18%"), módulo de presupuesto y campañas de Marketing (§14,
+      hoy solo existe CAC/CPL/LTV vía el embudo comercial), y una página de Metodología/
+      Fundamento teórico (§22, hoy vive como JSDoc en cada engine).
 
 ## Alcance de v2.0 — qué quedó fuera y por qué
 
@@ -300,3 +307,21 @@ límite de empresas.
   financiamiento" (flujo operativo − servicio de deuda mensual) son vistas derivadas propias de
   esta página — no alteran el Financial Engine general (ver nota de "Flujo de caja general"
   arriba).
+- **Biblioteca de KPIs (`/kpis`) y Alertas ampliadas (Dashboard)**: el Alert Engine
+  (`src/lib/engine/alerts.ts`) es una extensión determinística de las 3 alertas originales, no un
+  reemplazo — todo sigue siendo reglas fijas, la IA nunca decide si una alerta existe. Las
+  alertas de tendencia que menciona la spec §12 ("costos +18%", "margen −7%", "flujo de caja
+  negativo en 2 meses") requieren comparar contra un período anterior; la plataforma no persiste
+  snapshots históricos mes a mes todavía (mismo motivo que bloquea el Benchmarking temporal del
+  §20) — evaluarlas sin ese dato sería inventar una tendencia, así que no están. La biblioteca de
+  KPIs (`src/lib/engine/kpi-library.ts`) cubre los ~23 indicadores de la spec §12: **ROIC**
+  coincide numéricamente con **ROI** en este modelo porque el Estado de Resultados no tiene una
+  línea de gastos financieros propia (se explica en el modal, no se oculta); **ROE** reusa
+  `computeLeveragedRoi` del Financing Engine. Cinco KPIs quedan permanentemente "no disponible"
+  con su razón explícita porque la plataforma no captura ese dato en ningún módulo: Ventas por
+  vendedor (no se registra el número de vendedores activos), Productividad/Capacidad/Utilización
+  (no hay datos de producción u horas-hombre), y ROAS (el embudo registra el total de ventas de
+  la empresa, no específicamente las atribuibles a marketing — usar el total habría sobreestimado
+  el indicador). "Explicar con IA" en cada alerta del Dashboard genera solo una explicación y
+  recomendación conversacional sobre una alerta ya detectada (JSON validado con Zod, spec §17.4)
+  — nunca una alerta nueva ni una cifra que no esté en el mensaje original.
