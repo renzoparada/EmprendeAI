@@ -20,6 +20,7 @@ import {
   Filter,
   LineChart,
   BookOpen,
+  HandCoins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/mi-negocio", label: "Mi Negocio", icon: Briefcase, enabled: true },
   { href: "/costos", label: "Estructura de Costos", icon: Wallet, enabled: true },
   { href: "/inversion", label: "Inversión Inicial", icon: Landmark, enabled: true },
+  { href: "/financiamiento", label: "Financiamiento", icon: HandCoins, enabled: true },
   { href: "/escenarios", label: "Escenarios", icon: GitBranch, enabled: true },
   { href: "/precios", label: "Precios", icon: Tag, enabled: true },
   { href: "/ventas", label: "Ventas / Embudo", icon: Filter, enabled: true },

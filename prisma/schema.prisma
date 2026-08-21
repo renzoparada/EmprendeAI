@@ -122,6 +122,7 @@ model Company {
   fixedCosts           FixedCost[]
   variableCosts        VariableCost[]
   investments          Investment[]
+  financingPlans       FinancingPlan[]
   scenarios            Scenario[]
   aiConversations      AIConversation[]
   exchangeRates        ExchangeRate[]
@@ -335,6 +336,44 @@ model Investment {
   amount    Float
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
+
+  @@index([companyId])
+}
+
+// ---------------------------------------------------------------------------
+// Financiamiento (§14) — préstamo, socios, inversionista, crowdfunding,
+// capital propio. Todas las fuentes comparten la misma matemática de
+// amortización (Financing Engine); `type` es solo la etiqueta que el usuario
+// elige para identificar la fuente de capital.
+// ---------------------------------------------------------------------------
+
+enum FinancingType {
+  PRESTAMO_BANCARIO
+  SOCIOS
+  INVERSIONISTA
+  CROWDFUNDING
+  CAPITAL_PROPIO
+}
+
+enum GraceType {
+  NINGUNA
+  SOLO_INTERES
+  TOTAL
+}
+
+model FinancingPlan {
+  id                    String        @id @default(cuid())
+  companyId             String
+  company               Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name                  String
+  type                  FinancingType @default(PRESTAMO_BANCARIO)
+  principal             Float
+  annualInterestRatePct Float         @default(0)
+  termMonths            Int
+  gracePeriodMonths     Int           @default(0)
+  graceType             GraceType     @default(NINGUNA)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
 
   @@index([companyId])
 }

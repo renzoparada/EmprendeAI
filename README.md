@@ -22,9 +22,11 @@ Este repositorio contiene **MVP + v1.1 + v1.2 + v2.0** del roadmap (ver
   plan); **Panel Admin** (usuarios, empresas, uso de IA/tokens); **plan CONSULTOR** habilitado;
   **Sales Forecast/embudo comercial** (CAC, LTV, conversión por etapa); **Mis Metas** (plan
   inverso: cuánto vender/prospectar para alcanzar una meta, con plan de acción por IA);
-  **Dashboard para Inversores** como pantalla dedicada; y **Business Plan con IA** (secciones
+  **Dashboard para Inversores** como pantalla dedicada; **Business Plan con IA** (secciones
   cualitativas redactadas con ayuda de IA + secciones financieras renderizadas en vivo desde los
-  motores). Ver "Alcance de v2.0" más abajo para los recortes de esta fase.
+  motores); y **Financiamiento** (préstamo/socios/inversionista/crowdfunding/capital propio con
+  amortización, período de gracia, costo financiero, flujo de caja con deuda y ROI apalancado).
+  Ver "Alcance de v2.0" más abajo para los recortes de esta fase.
 
 No queda ningún módulo del roadmap MVP→v2.0 marcado como "Pronto" en la navegación — lo que
 falta (Pagos/Suscripciones reales y acceso cross-account del plan CONSULTOR) está documentado
@@ -173,9 +175,19 @@ src/components/admin/         UI del Panel Admin
       Panel Admin (usuarios/empresas/uso de IA), plan CONSULTOR habilitado, Sales
       Forecast/embudo comercial (CAC/LTV/conversión, spec §7), Mis Metas (plan inverso + acción
       por IA, spec §11), Dashboard para Inversores (spec §19), Business Plan con IA (spec §18).
+- [x] **Financiamiento** (spec §14) — simulador de préstamo/socios/inversionista/crowdfunding/
+      capital propio: amortización sistema francés con período de gracia (solo interés o total),
+      cuota, intereses, costo financiero, flujo de caja con servicio de deuda, ROI apalancado.
 - [ ] **Pendiente, fuera de todas las fases** — Pagos/Suscripciones reales (requiere pasarela de
       pago integrada) y acceso cross-account del plan CONSULTOR a cuentas de clientes (requiere
-      rediseñar el modelo de permisos). Ver "Alcance de v2.0" para el detalle de por qué.
+      rediseñar el modelo de permisos). Ver "Alcance de v2.0" para el detalle de por qué. También
+      quedan sin construir, por requerir datos o modelos que hoy no existen: Benchmarking
+      sectorial (§13, necesita una fuente de benchmarks real — no se inventan), Benchmarking
+      temporal/Simulación de negocios multi-periodo (§20, necesita snapshots históricos
+      mensuales, hoy el modelo es "estado actual"), biblioteca ampliada de KPIs/alertas con
+      explicación por IA (§12, hoy son 3 alertas con texto estático), módulo de presupuesto y
+      campañas de Marketing (§14, hoy solo existe CAC/CPL/LTV vía el embudo comercial), y una
+      página de Metodología/Fundamento teórico (§22, hoy vive como JSDoc en cada engine).
 
 ## Alcance de v2.0 — qué quedó fuera y por qué
 
@@ -210,10 +222,13 @@ límite de empresas.
 
 ## Notas de diseño (simplificaciones documentadas)
 
-- **Flujo de caja**: no hay módulo de financiamiento/deuda todavía (spec §14, v2.0), así que el
-  flujo de caja = ventas − costo de ventas − gastos operativos − impuestos. No se modela
-  depreciación real (queda en 0 en el estado de resultados) hasta que exista un cronograma de
-  activos.
+- **Flujo de caja general**: el flujo de caja del Financial Engine (Dashboard, Escenarios,
+  Reportes) sigue sin modelar deuda como línea propia: flujo = ventas − costo de ventas − gastos
+  operativos − impuestos. El módulo de Financiamiento (`/financiamiento`, spec §14) no altera ese
+  cálculo — expone su propio "flujo de caja con financiamiento" derivado (flujo operativo −
+  servicio de deuda) para no tocar el resto de la plataforma con un supuesto de deuda que no
+  todos los negocios tienen. No se modela depreciación real (queda en 0 en el estado de
+  resultados) hasta que exista un cronograma de activos.
 - **Tasa de impuesto**: es un campo editable en Perfil (`Company.taxRatePct`), marcado como
   supuesto — no viene de la especificación original pero es necesario para calcular Utilidad
   Neta (spec §8) sin inventar el dato silenciosamente (spec §0.3).
@@ -274,3 +289,14 @@ límite de empresas.
   el usuario lo complete. Las secciones financieras (Inversión, Proyección, Riesgos) NO se
   guardan como texto: se recalculan en vivo desde el Financial/Risk Engine cada vez que se abre
   la página, para que nunca queden desactualizadas respecto a los datos reales del negocio.
+- **Financiamiento (`/financiamiento`)**: un mismo Financing Engine (sistema francés de
+  amortización) modela préstamo bancario, aporte de socios, inversionista, crowdfunding y
+  capital propio — `type` es solo la etiqueta que el usuario elige; la matemática es la misma
+  (con tasa 0% para capital propio sin interés pactado). El período de gracia soporta "solo
+  interés" (el saldo no baja, se paga el interés cada mes) y "total" (no se paga nada, el interés
+  se capitaliza sobre el saldo). El "costo financiero total" reportado son los intereses pagados
+  — no se modelan comisiones o seguros adicionales, ninguna fuente real los declaró. El ROI
+  apalancado (Utilidad Neta / (Inversión Total − Total Financiado)) y el "flujo de caja con
+  financiamiento" (flujo operativo − servicio de deuda mensual) son vistas derivadas propias de
+  esta página — no alteran el Financial Engine general (ver nota de "Flujo de caja general"
+  arriba).

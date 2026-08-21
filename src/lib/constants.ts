@@ -94,6 +94,21 @@ export const BUSINESS_PLAN_SECTION_LABELS: Record<string, string> = {
   ESTRATEGIA: "Estrategia",
 };
 
+/** Financiamiento (spec §14). */
+export const FINANCING_TYPE_LABELS: Record<string, string> = {
+  PRESTAMO_BANCARIO: "Préstamo bancario",
+  SOCIOS: "Aporte de socios",
+  INVERSIONISTA: "Inversionista",
+  CROWDFUNDING: "Crowdfunding",
+  CAPITAL_PROPIO: "Capital propio",
+};
+
+export const GRACE_TYPE_LABELS: Record<string, string> = {
+  NINGUNA: "Sin período de gracia",
+  SOLO_INTERES: "Gracia — solo interés",
+  TOTAL: "Gracia total (capitaliza interés)",
+};
+
 export const BUSINESS_PLAN_SECTION_ORDER = [
   "RESUMEN_EJECUTIVO",
   "PROBLEMA",
