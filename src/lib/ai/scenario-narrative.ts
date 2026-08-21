@@ -7,7 +7,7 @@
  */
 import "server-only";
 import { z } from "zod";
-import { askEmprendeAI, isAIConfigured } from "@/lib/ai/client";
+import { generateStructuredJson } from "@/lib/ai/structured";
 
 export const ScenarioNarrativeSchema = z.object({
   summary: z.string().min(1),
@@ -25,12 +25,6 @@ export interface ScenarioNarrativeContext {
   assumptions: { variable: string; change_pct: number; unit: string }[];
   results: Record<string, number | null>;
   resultsVsBasePct: number | null;
-}
-
-function extractJson(text: string): unknown {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = fenced ? fenced[1] : text;
-  return JSON.parse(candidate.trim());
 }
 
 function buildPrompt(ctx: ScenarioNarrativeContext): string {
@@ -59,26 +53,6 @@ export interface ScenarioNarrativeOutcome {
 }
 
 export async function generateScenarioNarrative(ctx: ScenarioNarrativeContext): Promise<ScenarioNarrativeOutcome> {
-  if (!isAIConfigured()) {
-    return { narrative: null, missingData: ["ANTHROPIC_API_KEY no configurada"] };
-  }
-
-  const prompt = buildPrompt(ctx);
-
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const response = await askEmprendeAI(
-        "Devuelves únicamente JSON válido, sin texto adicional, sin markdown.",
-        [{ role: "USER", content: attempt === 0 ? prompt : `${prompt}\n\nTu respuesta anterior no era JSON válido. Responde SOLO el objeto JSON.` }]
-      );
-      const parsed = ScenarioNarrativeSchema.safeParse(extractJson(response.text));
-      if (parsed.success) {
-        return { narrative: parsed.data, missingData: [] };
-      }
-    } catch {
-      // intenta de nuevo en el siguiente loop, o cae al retorno null de abajo
-    }
-  }
-
-  return { narrative: null, missingData: ["No se pudo generar una narrativa válida para este escenario."] };
+  const { data, missingData } = await generateStructuredJson(ScenarioNarrativeSchema, buildPrompt(ctx));
+  return { narrative: data, missingData };
 }

@@ -1,4 +1,4 @@
-// EMPRENDE AI — Modelo de datos (MVP + v1.1 + v1.2 + v2.0)
+// EMPRENDE AI — Modelo de datos (MVP + v1.1 + v1.2 + v2.0 + piezas finales)
 //
 // Subconjunto de la sección 26 de la especificación funcional/técnica:
 // - MVP (§30 fase 1): auth, onboarding, modelo del negocio, estructura de
@@ -6,9 +6,11 @@
 // - v1.1: precificación inteligente + curva de demanda, chat EMPRENDE AI.
 // - v1.2: tipo de cambio + costos de importación (Multimoneda), matriz de
 //   riesgos y sensibilidad se calculan en memoria (no requieren tablas).
-// - v2.0: valoración (DCF/múltiplos/Berkus/Scorecard/VC Method) y Cap Table
-//   + simulador de rondas + waterfall de salida. Multinegocio real, Panel
-//   Admin y plan CONSULTOR quedan fuera de esta fase — ver README.
+// - v2.0: valoración (DCF/múltiplos/Berkus/Scorecard/VC Method), Cap Table +
+//   simulador de rondas + waterfall, Multinegocio, Panel Admin, CONSULTOR.
+// - Piezas finales: Sales Forecast/embudo comercial, Mis Metas, Business
+//   Plan con IA. Ver README para lo que queda deliberadamente fuera
+//   (pagos/suscripciones reales, colaboración cross-account de CONSULTOR).
 //
 // Multi-tenancy: toda tabla de negocio cuelga de Company. Las server actions
 // siempre resuelven la Company del usuario autenticado (lib/actions/auth-guard.ts)
@@ -127,6 +129,9 @@ model Company {
   shareholders         Shareholder[]
   fundingRounds        FundingRound[]
   capTableEntries      CapTableEntry[]
+  salesFunnel          SalesFunnel?
+  goal                 Goal?
+  businessPlanSections BusinessPlanSection[]
 
   @@index([userId])
 }
@@ -520,4 +525,94 @@ model CapTableEntry {
 
   @@index([companyId])
   @@index([shareholderId])
+}
+
+// ---------------------------------------------------------------------------
+// Sales Forecast / Embudo comercial (§7, fórmula 21.12)
+// ---------------------------------------------------------------------------
+
+/// Snapshot editable del embudo comercial del mes actual — spec §7. Un
+/// registro por empresa (se sobrescribe, no es una serie histórica en esta
+/// fase). Alimenta conversión por etapa, CAC, LTV y, junto con Mis Metas,
+/// cuántos leads/vendedores se necesitan para alcanzar un objetivo.
+model SalesFunnel {
+  id                       String   @id @default(cuid())
+  companyId                String   @unique
+  company                  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leads                    Float    @default(0)
+  contactos                Float    @default(0)
+  prospectos               Float    @default(0)
+  reuniones                Float    @default(0)
+  cotizaciones             Float    @default(0)
+  negociaciones            Float    @default(0)
+  ventas                   Float    @default(0)
+  avgTicket                Float    @default(0)
+  marketingSpend           Float    @default(0)
+  purchaseFrequencyPerYear Float    @default(1)
+  customerLifetimeYears    Float    @default(1)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Mis Metas (§11)
+// ---------------------------------------------------------------------------
+
+enum GoalTargetType {
+  UTILIDAD_NETA
+  VENTAS
+}
+
+/// Meta del usuario ("Quiero ganar Bs 100.000 al mes") — spec §11. Un
+/// registro activo por empresa; el Goal Planner Engine calcula ventas,
+/// unidades, clientes, leads y vendedores necesarios a partir de esto.
+model Goal {
+  id                  String         @id @default(cuid())
+  companyId           String         @unique
+  company             Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  targetType          GoalTargetType @default(UTILIDAD_NETA)
+  targetAmount        Float
+  targetConversionPct Float          @default(20)
+  leadsPerVendedor    Float          @default(50)
+  unitsPerCustomer    Float          @default(1)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Business Plan con IA (§18)
+// ---------------------------------------------------------------------------
+
+/// Secciones cualitativas del plan de negocio — texto libre editado por el
+/// usuario (opcionalmente con un borrador inicial de IA). Las secciones
+/// basadas en datos reales (Inversión, Proyección financiera, Riesgos) NO
+/// se guardan acá: se renderizan siempre en vivo desde los motores
+/// determinísticos, nunca como texto congelado (spec §18: "todo conectado
+/// al modelo financiero real, no generado de forma aislada").
+enum BusinessPlanSectionKey {
+  RESUMEN_EJECUTIVO
+  PROBLEMA
+  SOLUCION
+  PRODUCTO
+  MERCADO
+  CLIENTE_OBJETIVO
+  MODELO_NEGOCIO
+  COMPETENCIA
+  MARKETING
+  VENTAS
+  OPERACIONES
+  EQUIPO
+  ESTRATEGIA
+}
+
+model BusinessPlanSection {
+  id        String                 @id @default(cuid())
+  companyId String
+  company   Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  key       BusinessPlanSectionKey
+  content   String                 @default("")
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+
+  @@unique([companyId, key])
 }

@@ -17,6 +17,9 @@ import {
   FileText,
   Target,
   Building2,
+  Filter,
+  LineChart,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -37,12 +40,15 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/inversion", label: "Inversión Inicial", icon: Landmark, enabled: true },
   { href: "/escenarios", label: "Escenarios", icon: GitBranch, enabled: true },
   { href: "/precios", label: "Precios", icon: Tag, enabled: true },
+  { href: "/ventas", label: "Ventas / Embudo", icon: Filter, enabled: true },
   { href: "/sensibilidad", label: "Sensibilidad", icon: Activity, enabled: true },
   { href: "/multimoneda", label: "Multimoneda", icon: TrendingUp, enabled: true },
   { href: "/valoracion", label: "Valoración", icon: Gem, enabled: true },
   { href: "/socios", label: "Socios / Cap Table", icon: Users, enabled: true },
+  { href: "/inversionistas", label: "Dashboard Inversores", icon: LineChart, enabled: true },
+  { href: "/plan-de-negocio", label: "Business Plan", icon: BookOpen, enabled: true },
   { href: "/reportes", label: "Reportes", icon: FileText, enabled: true },
-  { href: "/metas", label: "Mis Metas", icon: Target, enabled: false },
+  { href: "/metas", label: "Mis Metas", icon: Target, enabled: true },
   { href: "/negocios", label: "Mis Negocios", icon: Building2, enabled: true },
   { href: "/perfil", label: "Perfil", icon: User, enabled: true },
 ];

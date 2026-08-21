@@ -3,7 +3,7 @@
 **CFO Virtual + Business Planner + Analista de Negocios con IA**
 *"El copiloto financiero y estratégico de tu negocio."*
 
-Este repositorio contiene **MVP + v1.1 + v1.2 + v2.0 (parcial)** del roadmap (ver
+Este repositorio contiene **MVP + v1.1 + v1.2 + v2.0** del roadmap (ver
 [`docs/spec.md`](./docs/spec.md) §30):
 
 - **MVP**: Onboarding, Mi Negocio, Estructura de Costos, Inversión Inicial, un Financial Engine
@@ -19,11 +19,17 @@ Este repositorio contiene **MVP + v1.1 + v1.2 + v2.0 (parcial)** del roadmap (ve
   Scorecard, VC Method) con selección automática de métodos por etapa y rango min-probable-max;
   Cap Table + Simulador de Ronda de Inversión + Simulador de Salida/Waterfall; Investor
   Readiness Score; VAN/TIR; **Multinegocio** (varias empresas por cuenta, con límite real por
-  plan); **Panel Admin** (usuarios, empresas, uso de IA/tokens); **plan CONSULTOR** habilitado.
-  Ver "Alcance de v2.0" más abajo para lo que sigue pendiente dentro de esta fase.
+  plan); **Panel Admin** (usuarios, empresas, uso de IA/tokens); **plan CONSULTOR** habilitado;
+  **Sales Forecast/embudo comercial** (CAC, LTV, conversión por etapa); **Mis Metas** (plan
+  inverso: cuánto vender/prospectar para alcanzar una meta, con plan de acción por IA);
+  **Dashboard para Inversores** como pantalla dedicada; y **Business Plan con IA** (secciones
+  cualitativas redactadas con ayuda de IA + secciones financieras renderizadas en vivo desde los
+  motores). Ver "Alcance de v2.0" más abajo para los recortes de esta fase.
 
-Los módulos que faltan (Mis Metas, Sales Forecast/embudo comercial, Dashboard para Inversores
-como pantalla separada) aparecen en la navegación marcados como "Pronto".
+No queda ningún módulo del roadmap MVP→v2.0 marcado como "Pronto" en la navegación — lo que
+falta (Pagos/Suscripciones reales y acceso cross-account del plan CONSULTOR) está documentado
+explícitamente en "Alcance de v2.0" y no en la navegación, porque construirlo a medias habría
+significado fabricar datos o abrir un agujero de seguridad, no un simple recorte de alcance.
 
 ## Stack
 
@@ -164,10 +170,12 @@ src/components/admin/         UI del Panel Admin
 - [x] **v2.0** — Valuation Engine (DCF, múltiplos, capitalización de utilidades, Berkus,
       Scorecard, VC Method), Cap Table + Simulador de Ronda + Waterfall de salida, Investor
       Readiness Score, VAN/TIR, Multinegocio (cambio de empresa activa + límite por plan),
-      Panel Admin (usuarios/empresas/uso de IA), plan CONSULTOR habilitado.
-- [ ] **Pendiente, fuera de todas las fases** — Dashboard para Inversores como pantalla dedicada
-      (spec §19; hoy sus elementos viven repartidos en Valoración/Socios/Dashboard), Mis Metas,
-      Sales Forecast/embudo comercial, Business Plan con IA (spec §18).
+      Panel Admin (usuarios/empresas/uso de IA), plan CONSULTOR habilitado, Sales
+      Forecast/embudo comercial (CAC/LTV/conversión, spec §7), Mis Metas (plan inverso + acción
+      por IA, spec §11), Dashboard para Inversores (spec §19), Business Plan con IA (spec §18).
+- [ ] **Pendiente, fuera de todas las fases** — Pagos/Suscripciones reales (requiere pasarela de
+      pago integrada) y acceso cross-account del plan CONSULTOR a cuentas de clientes (requiere
+      rediseñar el modelo de permisos). Ver "Alcance de v2.0" para el detalle de por qué.
 
 ## Alcance de v2.0 — qué quedó fuera y por qué
 
@@ -243,3 +251,26 @@ límite de empresas.
   flujo de caja, concentración de producto, riesgos activos). La spec §16.5 también menciona
   consistencia de datos históricos multi-mes y documentación cargada — se sumarán como señales
   cuando existan esos módulos (no hay carga de documentos ni historial mensual todavía).
+- **Sales Forecast / embudo comercial (`/ventas`)**: el Funnel Engine calcula conversión por
+  etapa, costo por lead, CAC y LTV a partir de un único snapshot editable del embudo (no hay
+  todavía carga histórica mes a mes) — LTV/CAC ≥3 se marca como saludable, siguiendo el estándar
+  de la industria citado en la spec §7.
+- **Mis Metas (`/metas`)**: el Goal Planner Engine resuelve hacia atrás (ventas → unidades →
+  clientes → leads → vendedores necesarios) reusando el mismo margen de contribución del
+  Financial Engine — no un cálculo paralelo. El plan de acción de IA solo redacta texto sobre
+  ese resultado ya calculado (mismo patrón de JSON validado con Zod que la narrativa por
+  escenario, spec §17.4) — si la IA no responde JSON válido, no se publica nada.
+- **Dashboard para Inversores (`/inversionistas`)**: reutiliza los mismos engines/componentes que
+  Inversión Inicial, Valoración y Socios (VAN/TIR, rango de valoración, Investor Readiness Score,
+  Cap Table) en una sola pantalla pensada para compartir con un inversionista — no duplica
+  ningún cálculo, solo los ensambla. La proyección a 5 años usa un crecimiento anual supuesto de
+  5% (editable en el simulador VAN/TIR de la misma página), marcado explícitamente como supuesto.
+- **Business Plan con IA (`/plan-de-negocio`)**: las 13 secciones cualitativas (Resumen
+  Ejecutivo, Problema, Solución, Mercado, Cliente Objetivo, Modelo de Negocio, Competencia,
+  Marketing, Ventas, Operaciones, Equipo, Estrategia, Producto) son texto editable por el
+  usuario, con un botón "Ayúdame a redactar con IA" que genera un borrador de arranque citando
+  solo datos reales ya cargados — nunca inventa nombres de competidores, integrantes del equipo
+  ni tamaños de mercado; cuando falta ese dato, el borrador deja un marcador explícito para que
+  el usuario lo complete. Las secciones financieras (Inversión, Proyección, Riesgos) NO se
+  guardan como texto: se recalculan en vivo desde el Financial/Risk Engine cada vez que se abre
+  la página, para que nunca queden desactualizadas respecto a los datos reales del negocio.

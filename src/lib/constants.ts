@@ -76,3 +76,36 @@ export const SCENARIO_TYPE_LABELS: Record<string, string> = {
   BASE: "Base",
   OPTIMISTA: "Optimista",
 };
+
+/** Secciones cualitativas del Business Plan con IA (spec §18). */
+export const BUSINESS_PLAN_SECTION_LABELS: Record<string, string> = {
+  RESUMEN_EJECUTIVO: "Resumen ejecutivo",
+  PROBLEMA: "Problema",
+  SOLUCION: "Solución",
+  PRODUCTO: "Producto / Servicio",
+  MERCADO: "Mercado",
+  CLIENTE_OBJETIVO: "Cliente objetivo",
+  MODELO_NEGOCIO: "Modelo de negocio",
+  COMPETENCIA: "Competencia",
+  MARKETING: "Marketing",
+  VENTAS: "Ventas",
+  OPERACIONES: "Operaciones",
+  EQUIPO: "Equipo",
+  ESTRATEGIA: "Estrategia",
+};
+
+export const BUSINESS_PLAN_SECTION_ORDER = [
+  "RESUMEN_EJECUTIVO",
+  "PROBLEMA",
+  "SOLUCION",
+  "PRODUCTO",
+  "MERCADO",
+  "CLIENTE_OBJETIVO",
+  "MODELO_NEGOCIO",
+  "COMPETENCIA",
+  "MARKETING",
+  "VENTAS",
+  "OPERACIONES",
+  "EQUIPO",
+  "ESTRATEGIA",
+] as const;
