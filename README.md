@@ -26,8 +26,9 @@ Este repositorio contiene **MVP + v1.1 + v1.2 + v2.0** del roadmap (ver
   cualitativas redactadas con ayuda de IA + secciones financieras renderizadas en vivo desde los
   motores); **Financiamiento** (préstamo/socios/inversionista/crowdfunding/capital propio con
   amortización, período de gracia, costo financiero, flujo de caja con deuda y ROI apalancado);
-  y **KPIs y Alertas ampliadas** (biblioteca de ~23 KPIs por categoría + Alert Engine ampliado
-  con explicación por IA). Ver "Alcance de v2.0" más abajo para los recortes de esta fase.
+  **KPIs y Alertas ampliadas** (biblioteca de ~23 KPIs por categoría + Alert Engine ampliado con
+  explicación por IA); y **Metodología** (fundamento teórico de cada motor, enlazado desde todo
+  resultado numérico). Ver "Alcance de v2.0" más abajo para los recortes de esta fase.
 
 No queda ningún módulo del roadmap MVP→v2.0 marcado como "Pronto" en la navegación — lo que
 falta (Pagos/Suscripciones reales y acceso cross-account del plan CONSULTOR) está documentado
@@ -185,6 +186,11 @@ src/components/admin/         UI del Panel Admin
       Dashboard (producto más/menos rentable, margen unitario negativo, LTV/CAC bajo, servicio de
       deuda mayor al flujo de caja, meta lejos de cumplirse, además de las 3 alertas originales) y
       explicación conversacional por IA por alerta (JSON validado, spec §17.4).
+- [x] **Metodología** (spec §22) — página `/metodologia` con los 11 fundamentos teóricos de la
+      spec (Costo-Volumen-Utilidad, Valor del dinero en el tiempo, CAPM/WACC, DCF, Múltiplos,
+      Capitalización de utilidades, Berkus, Scorecard, VC Method, Elasticidad precio, CAC/LTV),
+      fuente única reusada por Valoración; enlace "Ver metodología" desde KpiCard, la Biblioteca
+      de KPIs, VAN/TIR y Precificación (spec §22: "todo resultado numérico enlaza a esta sección").
 - [ ] **Pendiente, fuera de todas las fases** — Pagos/Suscripciones reales (requiere pasarela de
       pago integrada) y acceso cross-account del plan CONSULTOR a cuentas de clientes (requiere
       rediseñar el modelo de permisos). Ver "Alcance de v2.0" para el detalle de por qué. También
@@ -192,9 +198,8 @@ src/components/admin/         UI del Panel Admin
       sectorial (§13, necesita una fuente de benchmarks real — no se inventan), Benchmarking
       temporal/Simulación de negocios multi-periodo (§20, necesita snapshots históricos
       mensuales, hoy el modelo es "estado actual" — este mismo motivo bloquea las alertas de
-      tendencia de §12, ej. "costos +18%"), módulo de presupuesto y campañas de Marketing (§14,
-      hoy solo existe CAC/CPL/LTV vía el embudo comercial), y una página de Metodología/
-      Fundamento teórico (§22, hoy vive como JSDoc en cada engine).
+      tendencia de §12, ej. "costos +18%"), y módulo de presupuesto y campañas de Marketing (§14,
+      hoy solo existe CAC/CPL/LTV vía el embudo comercial).
 
 ## Alcance de v2.0 — qué quedó fuera y por qué
 
@@ -325,3 +330,15 @@ límite de empresas.
   el indicador). "Explicar con IA" en cada alerta del Dashboard genera solo una explicación y
   recomendación conversacional sobre una alerta ya detectada (JSON validado con Zod, spec §17.4)
   — nunca una alerta nueva ni una cifra que no esté en el mensaje original.
+- **Metodología (`/metodologia`)**: `src/lib/methodology.ts` es la fuente única de los 11
+  fundamentos teóricos de la spec §22 — Valoración ya citaba metodología por método (Berkus,
+  Scorecard, DCF, etc.) en un archivo propio; se migró a esta fuente central en vez de mantener
+  el texto duplicado. El enlace "Ver metodología" se agregó al componente `KpiCard` (usado en
+  ~30 lugares de la plataforma) con un `methodologyTopic` opcional: cuando se especifica, ancla
+  a la sección exacta (ej. Punto de Equilibrio → Costo-Volumen-Utilidad); cuando no, enlaza a la
+  página general. No se hizo el barrido mecánico de mapear los ~30 usos de `KpiCard` uno por uno
+  — se mapearon explícitamente los casos con una correspondencia clara a uno de los 11 temas de
+  la spec (Punto de Equilibrio, CAC/LTV en Ventas y en la Biblioteca de KPIs, VAN/TIR,
+  Elasticidad en Precificación, y los 6 métodos de Valoración); el resto de KPIs (ROI, ROIC, ROE,
+  Utilidad, EBITDA financiados por Financiamiento, etc.) enlaza a la página general en vez de
+  forzar una equivalencia con un tema que no le corresponde según la spec.

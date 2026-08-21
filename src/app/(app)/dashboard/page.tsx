@@ -184,6 +184,7 @@ export default async function DashboardPage() {
           label="Punto de Equilibrio"
           value={Number.isFinite(snapshot.breakEven.amount) ? formatCurrency(snapshot.breakEven.amount, company.currency) : "—"}
           status={breakEvenStatus}
+          methodologyTopic="COSTO_VOLUMEN_UTILIDAD"
           explanation={{
             meaning: "El nivel de ventas mínimo para no perder ni ganar dinero.",
             why: "Te dice cuánto necesitas vender antes de empezar a generar utilidad real.",

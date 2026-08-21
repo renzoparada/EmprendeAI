@@ -22,6 +22,7 @@ import {
   BookOpen,
   HandCoins,
   Gauge,
+  GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +55,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/reportes", label: "Reportes", icon: FileText, enabled: true },
   { href: "/metas", label: "Mis Metas", icon: Target, enabled: true },
   { href: "/negocios", label: "Mis Negocios", icon: Building2, enabled: true },
+  { href: "/metodologia", label: "Metodología", icon: GraduationCap, enabled: true },
   { href: "/perfil", label: "Perfil", icon: User, enabled: true },
 ];
 // El chat EMPRENDE AI (spec §10) no es una ruta del sidebar — vive como panel

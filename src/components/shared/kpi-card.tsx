@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { Info } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import type { MethodologyTopicId } from "@/lib/methodology";
 import { cn } from "@/lib/utils";
 
 export type KpiStatus = "verde" | "amarillo" | "rojo" | "neutral";
@@ -35,12 +37,15 @@ export function KpiCard({
   status = "neutral",
   helperText,
   explanation,
+  methodologyTopic,
 }: {
   label: string;
   value: string;
   status?: KpiStatus;
   helperText?: string;
   explanation: KpiExplanation;
+  /** Tema de /metodologia al que enlaza este KPI (spec §22: "todo resultado numérico enlaza a esta sección"). Sin este dato, enlaza a la página general. */
+  methodologyTopic?: MethodologyTopicId;
 }) {
   return (
     <Card>
@@ -81,6 +86,12 @@ export function KpiCard({
                     <dd className="text-slate-600">{explanation.whatToDo}</dd>
                   </div>
                 </dl>
+                <Link
+                  href={methodologyTopic ? `/metodologia#${methodologyTopic}` : "/metodologia"}
+                  className="mt-4 inline-block text-xs font-medium text-emerald-700 hover:underline"
+                >
+                  Ver metodología completa →
+                </Link>
               </DialogContent>
             </Dialog>
           </div>

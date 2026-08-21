@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { computeIRR, computeNPV } from "@/lib/engine/financial";
 import { projectWithGrowth } from "@/lib/engine/projection";
@@ -79,6 +80,9 @@ export function VanTirCalculator({
             </p>
           </div>
         </div>
+        <Link href="/metodologia#VALOR_DINERO_TIEMPO" className="inline-block text-xs font-medium text-emerald-700 hover:underline">
+          Ver metodología →
+        </Link>
       </CardContent>
     </Card>
   );

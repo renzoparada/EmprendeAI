@@ -1,4 +1,6 @@
+import Link from "next/link";
 import type { KpiCategory, KpiLibraryItem } from "@/lib/engine/kpi-library";
+import type { MethodologyTopicId } from "@/lib/methodology";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency, formatPercent } from "@/lib/utils";
 
@@ -10,6 +12,24 @@ const CATEGORY_LABELS: Record<KpiCategory, string> = {
 };
 
 const CATEGORY_ORDER: KpiCategory[] = ["financiero", "comercial", "operativo", "marketing"];
+
+/** Solo se mapean los KPIs con una correspondencia clara a un tema de /metodologia (spec §22) — el resto (ROI/ROIC/ROE, KPIs no disponibles) no fuerza una equivalencia que no existe en la spec. */
+const ITEM_TO_TOPIC: Partial<Record<string, MethodologyTopicId>> = {
+  ventas: "COSTO_VOLUMEN_UTILIDAD",
+  margen_neto: "COSTO_VOLUMEN_UTILIDAD",
+  ebitda: "COSTO_VOLUMEN_UTILIDAD",
+  utilidad_neta: "COSTO_VOLUMEN_UTILIDAD",
+  costo_unitario: "COSTO_VOLUMEN_UTILIDAD",
+  cac_financiero: "CAC_LTV",
+  ltv: "CAC_LTV",
+  cac_marketing: "CAC_LTV",
+  leads: "CAC_LTV",
+  conversion_comercial: "CAC_LTV",
+  conversion_marketing: "CAC_LTV",
+  ticket_promedio: "CAC_LTV",
+  frecuencia_compra: "CAC_LTV",
+  cpl: "CAC_LTV",
+};
 
 function formatKpiValue(item: KpiLibraryItem, currency: string): string {
   if (item.value == null) return "No disponible";
@@ -27,6 +47,7 @@ function formatKpiValue(item: KpiLibraryItem, currency: string): string {
 
 function KpiLibraryCard({ item, currency }: { item: KpiLibraryItem; currency: string }) {
   const available = item.value != null;
+  const topic = ITEM_TO_TOPIC[item.id];
   return (
     <Card>
       <CardContent className="pt-5">
@@ -35,6 +56,11 @@ function KpiLibraryCard({ item, currency }: { item: KpiLibraryItem; currency: st
         <p className="mt-1.5 text-xs text-slate-400">{item.formula}</p>
         {item.note && <p className="mt-1 text-xs text-slate-500">{item.note}</p>}
         {!available && item.unavailableReason && <p className="mt-1 text-xs text-amber-700">{item.unavailableReason}</p>}
+        {available && (
+          <Link href={topic ? `/metodologia#${topic}` : "/metodologia"} className="mt-2 inline-block text-xs font-medium text-emerald-700 hover:underline">
+            Ver metodología →
+          </Link>
+        )}
       </CardContent>
     </Card>
   );

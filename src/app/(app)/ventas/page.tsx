@@ -63,6 +63,7 @@ export default async function VentasPage() {
           <KpiCard
             label="CAC"
             value={formatCurrency(cac, company.currency)}
+            methodologyTopic="CAC_LTV"
             explanation={{
               meaning: "El costo de adquisición por cada cliente nuevo.",
               why: "Determina si tu inversión en ventas y marketing es rentable.",
@@ -75,6 +76,7 @@ export default async function VentasPage() {
             label="LTV / CAC"
             value={Number.isFinite(ltvCac.ratio) ? `${ltvCac.ratio.toFixed(1)}x` : "—"}
             status={ltvCac.healthy ? "verde" : "rojo"}
+            methodologyTopic="CAC_LTV"
             explanation={{
               meaning: "Cuántas veces el valor de vida de un cliente supera lo que cuesta adquirirlo.",
               why: "Es el indicador clave de si tu modelo de adquisición de clientes es sostenible.",
