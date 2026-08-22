@@ -28,8 +28,10 @@ Este repositorio contiene **MVP + v1.1 + v1.2 + v2.0** del roadmap (ver
   amortización, período de gracia, costo financiero, flujo de caja con deuda y ROI apalancado);
   **KPIs y Alertas ampliadas** (biblioteca de ~23 KPIs por categoría + Alert Engine ampliado con
   explicación por IA); **Metodología** (fundamento teórico de cada motor, enlazado desde todo
-  resultado numérico); y **Benchmarking Temporal** (fotos mensuales reales del negocio,
-  comparación vs. mes anterior y vs. año anterior, alertas de tendencia). Ver "Alcance de v2.0"
+  resultado numérico); **Benchmarking Temporal** (fotos mensuales reales del negocio, comparación
+  vs. mes anterior y vs. año anterior, alertas de tendencia); y **Business Simulator** (proyección
+  12-60 meses hacia adelante: ventas, precio, inflación, personal, inversión, financiamiento y
+  tipo de cambio, todo sobre los motores existentes). Ver "Alcance de v2.0"
   más abajo para los recortes de esta fase.
 
 No queda ningún módulo del roadmap MVP→v2.0 marcado como "Pronto" en la navegación — lo que
@@ -202,6 +204,14 @@ src/components/admin/         UI del Panel Admin
       también desbloqueó las alertas de tendencia de §12 que quedaban pendientes (costos +18%,
       margen −7 puntos, flujo negativo 2 meses seguidos, punto de equilibrio subió) — corren en
       cuanto hay ≥2 meses de historia capturada.
+- [x] **Business Simulator** (spec §20, la otra mitad de la sección) — proyección mes a mes hacia
+      adelante (12/24/36/60 meses) sobre los datos reales actuales: crecimiento de ventas, ajuste
+      de precio, inflación (→ costos), personal (headcount × sueldo, sin tocar los costos fijos
+      reales), eventos de inversión puntuales, servicio de deuda de tus fuentes de Financiamiento,
+      shock de tipo de cambio (reusa el Currency Engine) y una proyección informativa de marketing
+      (gasto y clientes nuevos, sin duplicar el supuesto de crecimiento de ventas). Página
+      `/simulador`: simulaciones nombradas y guardables (solo el conjunto de supuestos — los
+      resultados se recalculan en vivo cada vez), gráfico y tabla mes a mes.
 - [ ] **Pendiente, fuera de todas las fases** — Pagos/Suscripciones reales (requiere pasarela de
       pago integrada) y acceso cross-account del plan CONSULTOR a cuentas de clientes (requiere
       rediseñar el modelo de permisos). Ver "Alcance de v2.0" para el detalle de por qué. También
@@ -366,6 +376,27 @@ límite de empresas.
   una cuenta con meses de uso previo a este feature no tiene fotos de esos meses. El Temporal
   Benchmark Engine (`src/lib/engine/temporal-benchmark.ts`) compara siempre las dos fotos más
   recientes disponibles, sean o no consecutivas en el calendario (un hueco de meses nunca se
-  rellena). Esto es distinto del "Business Simulator" que también menciona la spec §20 (simular
-  12-60 meses hacia adelante con inflación/tipo de cambio/personal) — esa es una feature separada,
-  no incluida acá.
+  rellena). Esto es distinto del Business Simulator (mira hacia adelante) — ver su propia nota de
+  diseño más abajo.
+- **Business Simulator (`/simulador`, spec §20)**: proyección hacia adelante, mes a mes, sobre los
+  datos reales actuales — distinta de Escenarios (un solo período, sin línea de tiempo) y de
+  Benchmarking Temporal (mira hacia atrás). Cada mes se recalcula con `buildCompanySnapshot`, el
+  mismo pipeline que usa el resto de la plataforma — nunca una fórmula paralela. Cómo se resuelve
+  cada variable de la spec: **Clientes/Ventas** → % de crecimiento mensual compuesto sobre
+  unidades vendidas; **Precio** → un ajuste aplicado desde el mes 1, constante después;
+  **Costos/Inflación** → inflación anual convertida a tasa mensual compuesta `(1+anual)^(1/12)−1`,
+  aplicada a los costos fijos; **Personal** → headcount × sueldo promedio, creciendo a su propia
+  tasa, agregado como una línea de costo SOLO de la simulación (nunca toca los `FixedCost`
+  reales); **Inversión** → eventos de egreso de caja puntuales en meses específicos;
+  **Financiamiento** → resta el servicio de deuda ya calculado por el Financing Engine
+  (`summarizeLoan`) sobre los `FinancingPlan` reales, si el usuario elige incluirlo; **Tipo de
+  cambio** → se resuelve ANTES de llamar al motor de simulación, reusando `applyImportCosts`
+  (Currency Engine) sobre los productos con costo de importación — el motor de simulación en sí no
+  conoce monedas, mantiene una sola responsabilidad; **Marketing** → `projectMarketing` es
+  puramente informativo (gasto y clientes nuevos proyectados vía CAC/conversión actuales) y
+  deliberadamente NO alimenta el % de crecimiento de ventas, para que dos mecanismos de
+  crecimiento no se superpongan y produzcan un número que nadie pueda explicar. Persistencia: se
+  guarda el **conjunto de supuestos** con nombre (`BusinessSimulation`, con los eventos de
+  inversión en una columna `Json` validada con Zod al leer/escribir — nunca confiada ciegamente);
+  los **resultados nunca se guardan**, se recalculan en vivo cada vez sobre los datos actuales de
+  la empresa (mismo principio que el Business Plan: nunca una cifra congelada).

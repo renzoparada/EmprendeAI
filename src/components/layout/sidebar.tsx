@@ -24,6 +24,7 @@ import {
   Gauge,
   GraduationCap,
   History,
+  Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +47,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/inversion", label: "Inversión Inicial", icon: Landmark, enabled: true },
   { href: "/financiamiento", label: "Financiamiento", icon: HandCoins, enabled: true },
   { href: "/escenarios", label: "Escenarios", icon: GitBranch, enabled: true },
+  { href: "/simulador", label: "Business Simulator", icon: Rocket, enabled: true },
   { href: "/precios", label: "Precios", icon: Tag, enabled: true },
   { href: "/ventas", label: "Ventas / Embudo", icon: Filter, enabled: true },
   { href: "/sensibilidad", label: "Sensibilidad", icon: Activity, enabled: true },

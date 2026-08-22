@@ -124,6 +124,7 @@ model Company {
   investments          Investment[]
   financingPlans       FinancingPlan[]
   monthlySnapshots     MonthlySnapshot[]
+  businessSimulations  BusinessSimulation[]
   scenarios            Scenario[]
   aiConversations      AIConversation[]
   exchangeRates        ExchangeRate[]
@@ -413,6 +414,37 @@ model MonthlySnapshot {
   capturedAt       DateTime       @default(now())
 
   @@unique([companyId, periodYear, periodMonth])
+  @@index([companyId])
+}
+
+// ---------------------------------------------------------------------------
+// Business Simulator (§20) — proyección hacia adelante, mes a mes, sobre los
+// datos reales actuales. Se guarda el CONJUNTO DE SUPUESTOS con nombre para
+// poder volver a él; los resultados nunca se persisten, se recalculan en
+// vivo cada vez (mismo principio que el Business Plan: nunca una cifra
+// congelada).
+// ---------------------------------------------------------------------------
+
+model BusinessSimulation {
+  id                        String   @id @default(cuid())
+  companyId                 String
+  company                   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name                      String
+  horizonMonths             Int      @default(12)
+  monthlySalesGrowthPct     Float    @default(0)
+  priceAdjustmentPct        Float    @default(0)
+  annualInflationPct        Float    @default(0)
+  staffCount                Int      @default(0)
+  avgSalary                 Float    @default(0)
+  monthlyStaffGrowthPct     Float    @default(0)
+  monthlyMarketingGrowthPct Float    @default(0)
+  exchangeRateShockPct      Float    @default(0)
+  includeFinancing          Boolean  @default(true)
+  /// Array de {month, name, amount} — validado con Zod al leer/escribir (spec §0.3: nunca confiar un JSON sin validar).
+  investmentEvents          Json     @default("[]")
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
   @@index([companyId])
 }
 
