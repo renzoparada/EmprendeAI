@@ -8,20 +8,22 @@
  * si una alerta existe, nunca cambia su severidad, nunca agrega una cifra
  * que no esté aquí.
  *
- * Alertas que la spec §12 menciona pero que este motor NO evalúa todavía
- * ("costos +18%", "margen −7%", "flujo de caja negativo en 2 meses"):
- * requieren comparar contra un período anterior, y la plataforma hoy no
- * persiste snapshots históricos mes a mes (ver README "Notas de diseño" /
- * Benchmarking temporal, spec §20). Evaluarlas sin ese dato sería inventar
- * una tendencia — quedan documentadas como pendientes, no simuladas.
+ * Las alertas de tendencia que la spec §12 menciona ("costos +18%", "margen
+ * −7%", "flujo de caja negativo en 2 meses") necesitan comparar contra un
+ * período anterior — vienen del Temporal Benchmark Engine
+ * (`src/lib/engine/temporal-benchmark.ts`), que opera sobre fotos mensuales
+ * reales (`MonthlySnapshot`, spec §20). Sin al menos 2 meses de historia
+ * capturada, esas alertas simplemente no aparecen — nunca se inventa una
+ * tendencia con un solo punto de datos.
  */
 
 import type { CompanySnapshot } from "@/lib/engine/financial";
 import type { LtvCacResult } from "@/lib/engine/funnel";
 import type { GoalTargetType } from "@/lib/engine/goals";
+import { detectTrendAlerts, type SnapshotLike } from "@/lib/engine/temporal-benchmark";
 
 export type AlertSeverity = "info" | "warning" | "danger";
-export type AlertCategory = "financiero" | "comercial" | "financiamiento" | "metas";
+export type AlertCategory = "financiero" | "comercial" | "financiamiento" | "metas" | "tendencia";
 
 export interface Alert {
   id: string;
@@ -44,6 +46,8 @@ export interface AlertContext {
   funnel?: { ltvCac: LtvCacResult } | null;
   financing?: { monthlyDebtService: number } | null;
   goal?: { progressPct: number; targetType: GoalTargetType } | null;
+  /** Fotos mensuales reales (spec §20) — sin esto, no hay alertas de tendencia. */
+  history?: SnapshotLike[];
 }
 
 /** Diferencia mínima de margen (puntos porcentuales) entre el mejor y el peor producto para que valga la pena señalarla. */
@@ -147,6 +151,12 @@ export function buildAlerts(ctx: AlertContext): Alert[] {
       message: `Vas al ${Math.max(0, ctx.goal.progressPct).toFixed(0)}% de tu meta de ${ctx.goal.targetType === "VENTAS" ? "ventas" : "utilidad neta"}.`,
       recommendation: "Revisa el plan de acción en Mis Metas para saber qué necesitas mejorar.",
     });
+  }
+
+  if (ctx.history && ctx.history.length >= 2) {
+    for (const trend of detectTrendAlerts(ctx.history)) {
+      alerts.push({ id: trend.id, severity: trend.severity, category: "tendencia", message: trend.message, recommendation: trend.recommendation });
+    }
   }
 
   return alerts;

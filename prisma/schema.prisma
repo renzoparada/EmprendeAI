@@ -123,6 +123,7 @@ model Company {
   variableCosts        VariableCost[]
   investments          Investment[]
   financingPlans       FinancingPlan[]
+  monthlySnapshots     MonthlySnapshot[]
   scenarios            Scenario[]
   aiConversations      AIConversation[]
   exchangeRates        ExchangeRate[]
@@ -375,6 +376,43 @@ model FinancingPlan {
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
+  @@index([companyId])
+}
+
+// ---------------------------------------------------------------------------
+// Benchmarking Temporal (§20/§13: "promedio histórico del propio negocio") —
+// foto mensual real del Financial Engine, nunca tipeada a mano. `source`
+// distingue una captura automática (al abrir el Dashboard, si no existe la
+// del mes en curso) de una recaptura manual explícita del usuario.
+// ---------------------------------------------------------------------------
+
+enum SnapshotSource {
+  AUTOMATICO
+  MANUAL
+}
+
+model MonthlySnapshot {
+  id               String         @id @default(cuid())
+  companyId        String
+  company          Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  periodYear       Int
+  periodMonth      Int
+
+  ventas           Float
+  costoVentas      Float
+  utilidadBruta    Float
+  gastosOperativos Float
+  ebitda           Float
+  utilidadNeta     Float
+  margenNetoPct    Float
+  flujoNeto        Float
+  /// null cuando el punto de equilibrio no es calculable ese mes (margen de contribución 0) — nunca se guarda Infinity.
+  breakEvenAmount  Float?
+
+  source           SnapshotSource @default(AUTOMATICO)
+  capturedAt       DateTime       @default(now())
+
+  @@unique([companyId, periodYear, periodMonth])
   @@index([companyId])
 }
 

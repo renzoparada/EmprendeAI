@@ -23,6 +23,7 @@ import {
   HandCoins,
   Gauge,
   GraduationCap,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true },
   { href: "/kpis", label: "Biblioteca de KPIs", icon: Gauge, enabled: true },
+  { href: "/historico", label: "Histórico", icon: History, enabled: true },
   { href: "/mi-negocio", label: "Mi Negocio", icon: Briefcase, enabled: true },
   { href: "/costos", label: "Estructura de Costos", icon: Wallet, enabled: true },
   { href: "/inversion", label: "Inversión Inicial", icon: Landmark, enabled: true },

@@ -27,8 +27,10 @@ Este repositorio contiene **MVP + v1.1 + v1.2 + v2.0** del roadmap (ver
   motores); **Financiamiento** (préstamo/socios/inversionista/crowdfunding/capital propio con
   amortización, período de gracia, costo financiero, flujo de caja con deuda y ROI apalancado);
   **KPIs y Alertas ampliadas** (biblioteca de ~23 KPIs por categoría + Alert Engine ampliado con
-  explicación por IA); y **Metodología** (fundamento teórico de cada motor, enlazado desde todo
-  resultado numérico). Ver "Alcance de v2.0" más abajo para los recortes de esta fase.
+  explicación por IA); **Metodología** (fundamento teórico de cada motor, enlazado desde todo
+  resultado numérico); y **Benchmarking Temporal** (fotos mensuales reales del negocio,
+  comparación vs. mes anterior y vs. año anterior, alertas de tendencia). Ver "Alcance de v2.0"
+  más abajo para los recortes de esta fase.
 
 No queda ningún módulo del roadmap MVP→v2.0 marcado como "Pronto" en la navegación — lo que
 falta (Pagos/Suscripciones reales y acceso cross-account del plan CONSULTOR) está documentado
@@ -191,15 +193,22 @@ src/components/admin/         UI del Panel Admin
       Capitalización de utilidades, Berkus, Scorecard, VC Method, Elasticidad precio, CAC/LTV),
       fuente única reusada por Valoración; enlace "Ver metodología" desde KpiCard, la Biblioteca
       de KPIs, VAN/TIR y Precificación (spec §22: "todo resultado numérico enlaza a esta sección").
+- [x] **Benchmarking Temporal** (spec §20/§13) — `MonthlySnapshot`: foto mensual real del
+      Financial Engine (nunca tipeada a mano), capturada perezosamente al abrir el Dashboard o
+      `/historico` (sin cron externo requerido), con recaptura manual y un endpoint
+      `/api/cron/snapshot` opcional para quien quiera un cron real de fin de mes. Página
+      `/historico` con series por métrica, comparación vs. mes anterior y vs. mismo mes del año
+      anterior; el Dashboard ahora muestra "±X% vs. mes anterior" en sus KPIs principales. Esto
+      también desbloqueó las alertas de tendencia de §12 que quedaban pendientes (costos +18%,
+      margen −7 puntos, flujo negativo 2 meses seguidos, punto de equilibrio subió) — corren en
+      cuanto hay ≥2 meses de historia capturada.
 - [ ] **Pendiente, fuera de todas las fases** — Pagos/Suscripciones reales (requiere pasarela de
       pago integrada) y acceso cross-account del plan CONSULTOR a cuentas de clientes (requiere
       rediseñar el modelo de permisos). Ver "Alcance de v2.0" para el detalle de por qué. También
       quedan sin construir, por requerir datos o modelos que hoy no existen: Benchmarking
-      sectorial (§13, necesita una fuente de benchmarks real — no se inventan), Benchmarking
-      temporal/Simulación de negocios multi-periodo (§20, necesita snapshots históricos
-      mensuales, hoy el modelo es "estado actual" — este mismo motivo bloquea las alertas de
-      tendencia de §12, ej. "costos +18%"), y módulo de presupuesto y campañas de Marketing (§14,
-      hoy solo existe CAC/CPL/LTV vía el embudo comercial).
+      sectorial (§13, necesita una fuente de benchmarks real — no se inventan) y módulo de
+      presupuesto y campañas de Marketing (§14, hoy solo existe CAC/CPL/LTV vía el embudo
+      comercial).
 
 ## Alcance de v2.0 — qué quedó fuera y por qué
 
@@ -316,9 +325,8 @@ límite de empresas.
   (`src/lib/engine/alerts.ts`) es una extensión determinística de las 3 alertas originales, no un
   reemplazo — todo sigue siendo reglas fijas, la IA nunca decide si una alerta existe. Las
   alertas de tendencia que menciona la spec §12 ("costos +18%", "margen −7%", "flujo de caja
-  negativo en 2 meses") requieren comparar contra un período anterior; la plataforma no persiste
-  snapshots históricos mes a mes todavía (mismo motivo que bloquea el Benchmarking temporal del
-  §20) — evaluarlas sin ese dato sería inventar una tendencia, así que no están. La biblioteca de
+  negativo en 2 meses") ya están implementadas — ver "Benchmarking Temporal" más abajo, que
+  desbloqueó exactamente esto al agregar `MonthlySnapshot`. La biblioteca de
   KPIs (`src/lib/engine/kpi-library.ts`) cubre los ~23 indicadores de la spec §12: **ROIC**
   coincide numéricamente con **ROI** en este modelo porque el Estado de Resultados no tiene una
   línea de gastos financieros propia (se explica en el modal, no se oculta); **ROE** reusa
@@ -342,3 +350,22 @@ límite de empresas.
   Elasticidad en Precificación, y los 6 métodos de Valoración); el resto de KPIs (ROI, ROIC, ROE,
   Utilidad, EBITDA financiados por Financiamiento, etc.) enlaza a la página general en vez de
   forzar una equivalencia con un tema que no le corresponde según la spec.
+- **Benchmarking Temporal (`/historico`, spec §20/§13)**: `MonthlySnapshot` es la primera tabla
+  de la plataforma que guarda una foto histórica en vez de recalcular todo "estado actual" en
+  vivo — necesaria porque ningún "%vs. mes anterior" es honesto sin memoria real. Captura: sin
+  cron en producción configurado por defecto, así que la captura es **perezosa** —
+  `ensureCurrentMonthSnapshot` corre al abrir el Dashboard o `/historico`; si ya existe la foto
+  del mes calendario en curso, no hace nada; si no, la calcula del `CompanySnapshot` real de ese
+  momento y la guarda (`source: AUTOMATICO`). Además hay un botón manual "Actualizar snapshot de
+  este mes" (`source: MANUAL`, sobrescribe) y un endpoint opcional `GET /api/cron/snapshot`
+  (protegido con `CRON_SECRET`, deshabilitado con 501 si no está configurado) para quien despliegue
+  con un cron real y quiera una foto de fin de mes más precisa que "cuando alguien entró". **Límite
+  explícito y permanente**: nunca se permite cargar una cifra histórica de un mes pasado a mano —
+  todo snapshot sale de una corrida real del engine en el momento de la captura; si no hay foto de
+  un mes, ese mes queda vacío en el gráfico, nunca interpolado. Tampoco hay backfill retroactivo:
+  una cuenta con meses de uso previo a este feature no tiene fotos de esos meses. El Temporal
+  Benchmark Engine (`src/lib/engine/temporal-benchmark.ts`) compara siempre las dos fotos más
+  recientes disponibles, sean o no consecutivas en el calendario (un hueco de meses nunca se
+  rellena). Esto es distinto del "Business Simulator" que también menciona la spec §20 (simular
+  12-60 meses hacia adelante con inflación/tipo de cambio/personal) — esa es una feature separada,
+  no incluida acá.

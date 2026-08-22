@@ -138,4 +138,30 @@ describe("alert engine", () => {
     const alerts = buildAlerts(baseContext({ goal: { progressPct: 75, targetType: "UTILIDAD_NETA" } }));
     expect(alerts.some((a) => a.id === "meta_lejos")).toBe(false);
   });
+
+  it("sin historia, no genera alertas de tendencia", () => {
+    const alerts = buildAlerts(baseContext());
+    expect(alerts.some((a) => a.category === "tendencia")).toBe(false);
+  });
+
+  it("con historia insuficiente (1 mes), tampoco genera alertas de tendencia", () => {
+    const alerts = buildAlerts(
+      baseContext({ history: [{ periodYear: 2026, periodMonth: 1, ventas: 1, costoVentas: 1, utilidadBruta: 1, gastosOperativos: 1, ebitda: 1, utilidadNeta: 1, margenNetoPct: 1, flujoNeto: 1, breakEvenAmount: 1 }] })
+    );
+    expect(alerts.some((a) => a.category === "tendencia")).toBe(false);
+  });
+
+  it("con ≥2 meses de historia, integra las alertas del Temporal Benchmark Engine bajo categoría 'tendencia'", () => {
+    const alerts = buildAlerts(
+      baseContext({
+        history: [
+          { periodYear: 2026, periodMonth: 1, ventas: 10000, costoVentas: 4000, utilidadBruta: 6000, gastosOperativos: 3000, ebitda: 3000, utilidadNeta: 2250, margenNetoPct: 30, flujoNeto: 2250, breakEvenAmount: 5000 },
+          { periodYear: 2026, periodMonth: 2, ventas: 10000, costoVentas: 4000, utilidadBruta: 6000, gastosOperativos: 3000, ebitda: 3000, utilidadNeta: 1000, margenNetoPct: 15, flujoNeto: 1000, breakEvenAmount: 5000 },
+        ],
+      })
+    );
+    const trend = alerts.find((a) => a.id === "margen_cae");
+    expect(trend).toBeDefined();
+    expect(trend?.category).toBe("tendencia");
+  });
 });
