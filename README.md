@@ -132,6 +132,32 @@ npm run db:seed        # crea demo@emprendeai.com / demo1234 (con datos de ejemp
 npm run dev             # http://localhost:3000
 ```
 
+## Despliegue a producción
+
+El repo está listo para desplegarse (Vercel, o cualquier host Node), pero **no es un click-deploy**
+— hay decisiones y pasos que hacer a mano antes del primer release:
+
+1. **Base de datos**: un Postgres administrado real (`docker-compose.yml` es solo para desarrollo
+   local). Correr `npx prisma migrate deploy` (no `migrate dev`) para aplicar los migrations.
+2. **Variables de entorno** propias de ese entorno — nunca las de `.env.example`:
+   - `DATABASE_URL` del Postgres de producción.
+   - `AUTH_SECRET` generado de nuevo (`openssl rand -base64 32`).
+   - `ANTHROPIC_API_KEY` (opcional, pero sin ella el Chat/narrativas IA se degradan a "no
+     disponible" — el resto de la plataforma funciona igual, nunca depende de la IA para calcular).
+   - `CRON_SECRET` (opcional, spec §20 — solo si vas a apuntar un cron externo a
+     `/api/cron/snapshot` para una captura de fin de mes más precisa que la perezosa).
+3. **Primer usuario admin**: `npm run db:seed` (el de desarrollo) **nunca se corre en
+   producción** — crea cuentas con contraseñas conocidas (`demo1234`/`admin1234`). Para
+   producción: `npm run db:seed:prod` con `ADMIN_EMAIL`/`ADMIN_PASSWORD` configuradas en el
+   entorno. Es idempotente y seguro para correr en cada deploy — si ya existe un admin, no hace
+   nada (nunca pisa una contraseña ya establecida). Ver "Notas de diseño" para el detalle.
+
+Fuera de esto, quedan gaps de "producción real" que no se resolvieron en este repo porque son
+decisiones de infraestructura del que despliega, no de la plataforma en sí: no hay pipeline de
+CI (nada corre `tsc`/`eslint`/`vitest`/`build` automáticamente en cada PR), no hay recuperación
+de contraseña por email (no hay proveedor de email integrado), no hay rate limiting en `/login`
+ni en las acciones que llaman a la IA, y no hay monitoreo de errores (Sentry o similar).
+
 ## Scripts
 
 | Script | Descripción |
@@ -139,14 +165,16 @@ npm run dev             # http://localhost:3000
 | `npm run dev` | Servidor de desarrollo |
 | `npm run build` | Build de producción |
 | `npm test` | Tests unitarios de los engines (Vitest) |
-| `npm run db:seed` | Carga datos demo |
+| `npm run db:seed` | Carga datos demo — **solo desarrollo local, nunca producción** |
+| `npm run db:seed:prod` | Crea el primer usuario ADMIN desde `ADMIN_EMAIL`/`ADMIN_PASSWORD` — seguro para producción |
 | `npx prisma studio` | Explorador visual de la base de datos |
 
 ## Estructura del proyecto
 
 ```
 prisma/schema.prisma          Modelo de datos
-prisma/seed.ts                Datos demo (usuario + admin)
+prisma/seed.ts                Datos demo (usuario + admin) — SOLO desarrollo local
+prisma/seed-production.ts     Seed de producción: solo crea el primer admin, desde env vars
 src/app/(auth)/...            Login / registro
 src/app/onboarding/           Wizard de 4 pasos (spec §1) — primera empresa
 src/app/(app)/...             Shell autenticado: dashboard, mi-negocio, costos, inversion,
@@ -418,3 +446,16 @@ límite de empresas.
   e independientes: sin grant, la segunda cuenta no ve nada (redirige a onboarding); con grant,
   ve y opera los datos reales de la empresa; al revocar, pierde el acceso de inmediato; y en
   ningún momento ve el control de "otorgar/revocar acceso" de una empresa que no es suya.
+- **Seed de producción (`prisma/seed-production.ts`)**: el seed de desarrollo (`seed.ts`) crea un
+  admin y un usuario demo con contraseñas hardcodeadas y públicas en el repo
+  (`admin1234`/`demo1234`) — perfecto para desarrollo local, inaceptable en producción. El seed de
+  producción es un script separado y deliberadamente angosto: no crea datos demo, solo el primer
+  admin, leyendo `ADMIN_EMAIL`/`ADMIN_PASSWORD` del entorno. Es idempotente por diseño — si ya
+  existe cualquier usuario `ADMIN`, no hace nada más, ni siquiera si las variables de entorno
+  cambian en un redeploy posterior. La razón: un script de seed que pudiera pisar la contraseña de
+  un admin ya creado, solo con cambiar una variable de entorno en el panel del hosting, sería una
+  puerta trasera — cambiar la contraseña de un admin existente queda, a propósito, como una
+  operación manual (no hay todavía una función de "cambiar contraseña" en Perfil — es un gap
+  documentado, no resuelto en esta sesión). Si el email ya pertenece a una cuenta que se registró
+  sola por `/register`, el script la promueve a `ADMIN` sin tocar la contraseña que esa persona
+  ya eligió.

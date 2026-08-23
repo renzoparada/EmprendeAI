@@ -3,6 +3,12 @@
  * con productos, costos fijos/variables, inversión inicial y los tres
  * escenarios por defecto — suficiente para ver el Dashboard y Escenarios con
  * datos reales sin tener que cargarlos a mano.
+ *
+ * ⚠️ SOLO DESARROLLO — crea cuentas con contraseñas conocidas y públicas
+ * (demo@emprendeai.com / demo1234, admin@emprendeai.com / admin1234).
+ * Nunca correr esto contra una base de datos de producción. El seed de
+ * producción es `npm run db:seed:prod` (prisma/seed-production.ts) — no
+ * crea datos demo, solo el primer admin, a partir de variables de entorno.
  */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
