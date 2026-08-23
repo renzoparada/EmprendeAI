@@ -29,15 +29,17 @@ Este repositorio contiene **MVP + v1.1 + v1.2 + v2.0** del roadmap (ver
   **KPIs y Alertas ampliadas** (biblioteca de ~23 KPIs por categoría + Alert Engine ampliado con
   explicación por IA); **Metodología** (fundamento teórico de cada motor, enlazado desde todo
   resultado numérico); **Benchmarking Temporal** (fotos mensuales reales del negocio, comparación
-  vs. mes anterior y vs. año anterior, alertas de tendencia); y **Business Simulator** (proyección
+  vs. mes anterior y vs. año anterior, alertas de tendencia); **Business Simulator** (proyección
   12-60 meses hacia adelante: ventas, precio, inflación, personal, inversión, financiamiento y
-  tipo de cambio, todo sobre los motores existentes). Ver "Alcance de v2.0"
-  más abajo para los recortes de esta fase.
+  tipo de cambio, todo sobre los motores existentes); y **Acceso Cross-Account del plan
+  CONSULTOR** (un dueño le da a otra cuenta acceso completo a su empresa, sin compartir
+  credenciales, revocable en cualquier momento). Ver "Alcance de v2.0" más abajo para los
+  recortes de esta fase.
 
 No queda ningún módulo del roadmap MVP→v2.0 marcado como "Pronto" en la navegación — lo que
-falta (Pagos/Suscripciones reales y acceso cross-account del plan CONSULTOR) está documentado
-explícitamente en "Alcance de v2.0" y no en la navegación, porque construirlo a medias habría
-significado fabricar datos o abrir un agujero de seguridad, no un simple recorte de alcance.
+falta (Pagos/Suscripciones reales) está documentado explícitamente en "Alcance de v2.0" y no en
+la navegación, porque construirlo habría significado fabricar datos de facturación falsos, no un
+simple recorte de alcance.
 
 ## Stack
 
@@ -212,13 +214,17 @@ src/components/admin/         UI del Panel Admin
       (gasto y clientes nuevos, sin duplicar el supuesto de crecimiento de ventas). Página
       `/simulador`: simulaciones nombradas y guardables (solo el conjunto de supuestos — los
       resultados se recalculan en vivo cada vez), gráfico y tabla mes a mes.
+- [x] **Acceso Cross-Account del plan CONSULTOR** (spec §25) — el dueño de una empresa otorga
+      acceso completo (lectura + escritura) a otra cuenta ya registrada en EMPRENDE AI, sin
+      compartir credenciales, y puede revocarlo cuando quiera. Se resolvió en un único punto
+      (`resolveActiveCompany`), así que las ~38 Server Actions existentes ganaron soporte
+      cross-account sin tener que auditarlas una por una. v1 no distingue viewer/editor — ver
+      "Alcance de v2.0" para el porqué.
 - [ ] **Pendiente, fuera de todas las fases** — Pagos/Suscripciones reales (requiere pasarela de
-      pago integrada) y acceso cross-account del plan CONSULTOR a cuentas de clientes (requiere
-      rediseñar el modelo de permisos). Ver "Alcance de v2.0" para el detalle de por qué. También
-      quedan sin construir, por requerir datos o modelos que hoy no existen: Benchmarking
-      sectorial (§13, necesita una fuente de benchmarks real — no se inventan) y módulo de
-      presupuesto y campañas de Marketing (§14, hoy solo existe CAC/CPL/LTV vía el embudo
-      comercial).
+      pago integrada). Ver "Alcance de v2.0" para el detalle de por qué. También quedan sin
+      construir, por requerir datos o modelos que hoy no existen: Benchmarking sectorial (§13,
+      necesita una fuente de benchmarks real — no se inventan) y módulo de presupuesto y
+      campañas de Marketing (§14, hoy solo existe CAC/CPL/LTV vía el embudo comercial).
 
 ## Alcance de v2.0 — qué quedó fuera y por qué
 
@@ -237,14 +243,8 @@ con un recorte de alcance deliberado y documentado:
   **consolidación** entre empresas (reportes agregados multi-empresa, sucursales/unidades de
   negocio dentro de una misma empresa) — spec §20 lo menciona, pero es un módulo de reporting
   aparte, no incluido aquí.
-- **Plan CONSULTOR** hoy significa, en la práctica, "Multinegocio sin límite bajo la misma
-  cuenta" — igual que BUSINESS. **Lo que NO está implementado** es que un consultor acceda a la
-  cuenta de un cliente que inició sesión por su cuenta (colaboración cross-account con roles de
-  permiso). Eso requeriría rediseñar `requireCompany()` y, en teoría, cada una de las ~40 Server
-  Actions que asumen propiedad estricta (`company.userId === session.user.id`) para soportar
-  "es dueño O tiene acceso otorgado" — un cambio ancho en código de seguridad crítico que no se
-  hizo de forma apurada por el riesgo real de introducir un agujero de multi-tenancy. Queda como
-  el siguiente paso natural, con diseño explícito de permisos (viewer/editor por empresa).
+- **Plan CONSULTOR** ahora sí incluye acceso cross-account real (spec §25) además del límite de
+  empresas sin tope — ver su propia nota de diseño más abajo para el detalle completo.
 
 `lib/plans.ts` ahora marca los 5 planes como `available: true` — todas las features que
 enumeran ya existen en la plataforma (Chat IA, Reportes, Valoración, Cap Table no estaban
@@ -400,3 +400,21 @@ límite de empresas.
   inversión en una columna `Json` validada con Zod al leer/escribir — nunca confiada ciegamente);
   los **resultados nunca se guardan**, se recalculan en vivo cada vez sobre los datos actuales de
   la empresa (mismo principio que el Business Plan: nunca una cifra congelada).
+- **Acceso Cross-Account del plan CONSULTOR (spec §25)**: el riesgo real de este cambio era tener
+  que auditar cada una de las ~38 Server Actions existentes (repartidas en 20 archivos) para
+  confirmar que ninguna se olvidara de chequear el permiso correcto. Se evitó por diseño: toda esa
+  superficie ya pasaba por un único punto, `resolveActiveCompany` en `guard.ts`, así que extender
+  SOLO esa función (para reconocer un `CompanyAccessGrant` además de `userId`) le dio soporte
+  cross-account a las ~38 acciones sin tocar ninguna de ellas — un solo lugar que auditar y
+  verificar, en vez de 38. **v1 da acceso completo (lectura + escritura), sin nivel "solo
+  lectura"**: distinguir viewer/editor de verdad exigiría ese refactor ancho de los 38 archivos
+  que se evitó acá, y exponer un selector "Viewer/Editor" en la UI sin que el backend lo hiciera
+  cumplir habría sido una UI que miente sobre seguridad — peor que no tener la opción. Un puñado
+  de acciones sensibles (otorgar/revocar acceso) quedan exclusivas del dueño real vía un guard
+  separado, `requireCompanyOwner()`, que a propósito NO reconoce grants — así un consultor con
+  acceso no puede invitar a sus propios contactos a la empresa de su cliente. El acceso se otorga
+  solo a una cuenta que ya existe en EMPRENDE AI (por email) — no hay invitación a alguien sin
+  cuenta, porque no hay proveedor de email integrado para eso. Verificado con dos cuentas reales
+  e independientes: sin grant, la segunda cuenta no ve nada (redirige a onboarding); con grant,
+  ve y opera los datos reales de la empresa; al revocar, pierde el acceso de inmediato; y en
+  ningún momento ve el control de "otorgar/revocar acceso" de una empresa que no es suya.

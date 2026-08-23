@@ -11,6 +11,17 @@ import { prisma } from "@/lib/db";
  * negocio pasa por aquí. `requireCompany` resuelve SIEMPRE la empresa a
  * partir de la sesión del usuario autenticado — nunca de un id recibido del
  * cliente — así una empresa nunca puede leer/escribir datos de otra.
+ *
+ * Acceso Cross-Account (spec §25, plan CONSULTOR): un usuario puede
+ * acceder a una empresa que no es suya si el dueño le otorgó un
+ * `CompanyAccessGrant`. `resolveActiveCompany` es el ÚNICO lugar que decide
+ * "esta empresa es tuya (para operar)" — reconocerlo aquí, en un solo
+ * punto, hace que las ~40 Server Actions que ya llaman a `requireCompany()`
+ * ganen soporte cross-account automáticamente, sin tener que auditar cada
+ * una por separado. v1 da acceso completo (lectura + escritura) a quien
+ * recibe el grant — no hay todavía un nivel "solo lectura" (ver README
+ * "Alcance"): un puñado de acciones sensibles (otorgar/revocar acceso)
+ * exigen además ser el dueño, vía `requireCompanyOwner()`.
  */
 export async function requireSession() {
   const session = await auth();
@@ -23,28 +34,34 @@ export const ACTIVE_COMPANY_COOKIE = "emprendeai_active_company";
 
 /**
  * Resuelve la empresa "activa" del usuario: la de la cookie si existe y le
- * pertenece, o si no la primera que creó. La cookie es solo una preferencia
- * de navegación — la verificación de propiedad (`userId: userId`) es la
- * única fuente de verdad de multi-tenancy, nunca se confía en el valor de
- * la cookie sin validarlo contra la base de datos.
+ * pertenece (como dueño o por acceso otorgado), o si no la primera propia,
+ * o si no tiene ninguna propia, la primera a la que tenga acceso otorgado.
+ * La cookie es solo una preferencia de navegación — la verificación contra
+ * la base de datos es la única fuente de verdad de multi-tenancy, nunca se
+ * confía en el valor de la cookie sin validarlo.
  */
 async function resolveActiveCompany(userId: string): Promise<Company | null> {
+  const accessibleWhere = { OR: [{ userId }, { accessGrants: { some: { userId } } }] };
+
   const cookieStore = await cookies();
   const activeCompanyId = cookieStore.get(ACTIVE_COMPANY_COOKIE)?.value;
 
   if (activeCompanyId) {
-    const company = await prisma.company.findFirst({ where: { id: activeCompanyId, userId } });
+    const company = await prisma.company.findFirst({ where: { id: activeCompanyId, ...accessibleWhere } });
     if (company) return company;
   }
 
-  return prisma.company.findFirst({ where: { userId }, orderBy: { createdAt: "asc" } });
+  const owned = await prisma.company.findFirst({ where: { userId }, orderBy: { createdAt: "asc" } });
+  if (owned) return owned;
+
+  return prisma.company.findFirst({ where: { accessGrants: { some: { userId } } }, orderBy: { createdAt: "asc" } });
 }
 
 export async function requireCompany() {
   const session = await requireSession();
   const company = await resolveActiveCompany(session.user.id);
   if (!company) redirect("/onboarding");
-  return { session, company };
+  return { session, company, isOwner: company.userId === session.user.id };
 }
 
 /**
@@ -62,6 +79,20 @@ export async function requireCompanyForApi(): Promise<{ company: Company } | { e
     return { error: NextResponse.json({ error: "Empresa no encontrada" }, { status: 404 }) };
   }
   return { company };
+}
+
+/**
+ * Guard para acciones exclusivas del dueño de la empresa (spec §25):
+ * otorgar/revocar acceso de consultores. A diferencia de `requireCompany`,
+ * NO reconoce `CompanyAccessGrant` — solo `company.userId === session.user.id`.
+ * Nunca se resuelve por cookie/cliente: siempre relee la propiedad desde la
+ * base de datos para el companyId recibido.
+ */
+export async function requireCompanyOwner(companyId: string) {
+  const session = await requireSession();
+  const company = await prisma.company.findFirst({ where: { id: companyId, userId: session.user.id } });
+  if (!company) throw new Error("No sos el dueño de esta empresa.");
+  return { session, company };
 }
 
 /**

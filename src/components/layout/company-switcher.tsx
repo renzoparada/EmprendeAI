@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 export interface CompanySwitcherItem {
   id: string;
   name: string;
+  /** false = acceso otorgado por su dueño (spec §25), no una empresa propia. */
+  isOwned: boolean;
 }
 
 export function CompanySwitcher({ companies, activeCompanyId }: { companies: CompanySwitcherItem[]; activeCompanyId: string }) {
@@ -41,12 +43,15 @@ export function CompanySwitcher({ companies, activeCompanyId }: { companies: Com
               <button
                 type="submit"
                 className={cn(
-                  "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50",
+                  "flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50",
                   c.id === activeCompanyId ? "font-medium text-emerald-700" : "text-slate-700"
                 )}
               >
-                <Building2 className="h-4 w-4 text-slate-400" />
-                {c.name}
+                <span className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-slate-400" />
+                  {c.name}
+                </span>
+                {!c.isOwned && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Cliente</span>}
               </button>
             </form>
           ))}

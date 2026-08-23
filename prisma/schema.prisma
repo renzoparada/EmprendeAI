@@ -55,7 +55,11 @@ model User {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  companies Company[]
+  companies             Company[]
+  /// Empresas de terceros a las que este usuario recibió acceso (plan CONSULTOR, spec §25).
+  accessGrantsReceived  CompanyAccessGrant[] @relation("AccessGrantsReceived")
+  /// Accesos que este usuario otorgó, como dueño, sobre sus propias empresas.
+  accessGrantsGiven     CompanyAccessGrant[] @relation("AccessGrantsGiven")
 }
 
 // ---------------------------------------------------------------------------
@@ -135,7 +139,32 @@ model Company {
   salesFunnel          SalesFunnel?
   goal                 Goal?
   businessPlanSections BusinessPlanSection[]
+  accessGrants         CompanyAccessGrant[]
 
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Acceso Cross-Account del plan CONSULTOR (spec §25) — el dueño de una
+// empresa le otorga acceso completo (lectura + escritura) a otro usuario ya
+// registrado, sin compartir credenciales. v1: sin distinción viewer/editor
+// (ver README "Alcance" — hacerlo a medias en la UI sería engañoso sobre
+// seguridad). Solo el dueño puede otorgar/revocar (`requireCompanyOwner`,
+// nunca el propio guard general `requireCompany`, que sí reconoce estos
+// grants para todo lo demás).
+// ---------------------------------------------------------------------------
+
+model CompanyAccessGrant {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation("AccessGrantsReceived", fields: [userId], references: [id], onDelete: Cascade)
+  grantedById String
+  grantedBy   User     @relation("AccessGrantsGiven", fields: [grantedById], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([companyId, userId])
   @@index([userId])
 }
 

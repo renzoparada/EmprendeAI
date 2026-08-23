@@ -7,10 +7,19 @@ import { EmprendeAIChatPanel } from "@/components/chat/emprende-ai-chat-panel";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, company } = await requireCompany();
-  const [chatState, companies] = await Promise.all([
+  const [chatState, ownedCompanies, grantedCompanies] = await Promise.all([
     loadChatState(),
     prisma.company.findMany({ where: { userId: session.user.id }, select: { id: true, name: true }, orderBy: { createdAt: "asc" } }),
+    prisma.company.findMany({
+      where: { accessGrants: { some: { userId: session.user.id } } },
+      select: { id: true, name: true },
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
+  const companies = [
+    ...ownedCompanies.map((c) => ({ ...c, isOwned: true })),
+    ...grantedCompanies.map((c) => ({ ...c, isOwned: false })),
+  ];
 
   return (
     <div className="flex min-h-screen">
