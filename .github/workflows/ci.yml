@@ -45,9 +45,6 @@ jobs:
       - name: Generar Prisma Client
         run: npx prisma generate
 
-      - name: Chequeo de tipos (tsc)
-        run: npx tsc --noEmit
-
       - name: Lint (eslint)
         run: npm run lint
 
@@ -57,5 +54,12 @@ jobs:
       - name: Aplicar migraciones contra Postgres real
         run: npx prisma migrate deploy
 
-      - name: Build de producción (next build)
+      # No hay paso separado de "tsc --noEmit": Next.js genera tipos ambientales
+      # (p.ej. LayoutProps) en .next/types/ recién cuando corre por primera vez,
+      # y tsconfig.json los incluye explícitamente — así que un tsc standalone
+      # en un checkout limpio falla aunque el código esté bien. El chequeo de
+      # tipos de "next build" usa el mismo tsconfig.json y es equivalente en
+      # cobertura, pero corre en el orden correcto (después de generar esos
+      # tipos), así que reemplaza al paso standalone en vez de sumarse a él.
+      - name: Build de producción (incluye chequeo de tipos)
         run: npm run build
