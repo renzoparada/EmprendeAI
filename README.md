@@ -152,9 +152,17 @@ El repo está listo para desplegarse (Vercel, o cualquier host Node), pero **no 
    entorno. Es idempotente y seguro para correr en cada deploy — si ya existe un admin, no hace
    nada (nunca pisa una contraseña ya establecida). Ver "Notas de diseño" para el detalle.
 
+### CI
+
+`.github/workflows/ci.yml` corre en cada PR y en cada push a `main`: instala dependencias, genera
+el cliente de Prisma, `tsc --noEmit`, `eslint`, `vitest`, aplica todas las migraciones con
+`prisma migrate deploy` contra un Postgres real (servicio efímero del propio workflow — así un
+migration roto se detecta antes del deploy, no después) y por último `next build`. Nada llega a
+`main` sin pasar por los mismos cuatro chequeos que se corrieron a mano en cada commit de este
+proyecto.
+
 Fuera de esto, quedan gaps de "producción real" que no se resolvieron en este repo porque son
-decisiones de infraestructura del que despliega, no de la plataforma en sí: no hay pipeline de
-CI (nada corre `tsc`/`eslint`/`vitest`/`build` automáticamente en cada PR), no hay recuperación
+decisiones de infraestructura del que despliega, no de la plataforma en sí: no hay recuperación
 de contraseña por email (no hay proveedor de email integrado), no hay rate limiting en `/login`
 ni en las acciones que llaman a la IA, y no hay monitoreo de errores (Sentry o similar).
 

@@ -1,0 +1,61 @@
+name: CI
+
+# Corre en cada PR y en cada push a main — sin esto, nada garantiza que un
+# merge no rompa tsc/eslint/tests/build ni que las migraciones de Prisma
+# apliquen limpio contra una base real (ver README "Despliegue a producción").
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: emprendeai
+          POSTGRES_PASSWORD: emprendeai
+          POSTGRES_DB: emprendeai_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U emprendeai"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://emprendeai:emprendeai@localhost:5432/emprendeai_ci?schema=public
+      AUTH_SECRET: ci-only-secret-nunca-usar-en-produccion
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Generar Prisma Client
+        run: npx prisma generate
+
+      - name: Chequeo de tipos (tsc)
+        run: npx tsc --noEmit
+
+      - name: Lint (eslint)
+        run: npm run lint
+
+      - name: Tests unitarios de los engines (vitest)
+        run: npm test
+
+      - name: Aplicar migraciones contra Postgres real
+        run: npx prisma migrate deploy
+
+      - name: Build de producción (next build)
+        run: npm run build
