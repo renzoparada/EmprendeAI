@@ -5,6 +5,7 @@ import { z } from "zod";
 import { PlanCode } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireCompany } from "@/lib/actions/guard";
+import { MAX_COMPANIES_PER_PLAN, PLANS } from "@/lib/plans";
 import type { ActionState } from "@/lib/actions/auth-actions";
 
 const companyProfileSchema = z.object({
@@ -34,17 +35,18 @@ export async function updateCompanyProfile(_prevState: ActionState, formData: Fo
   return { success: true };
 }
 
-// Solo FREE/STARTER están implementados en el MVP (spec §25/§30). El resto
-// del catálogo de planes está definido en lib/plans.ts para mostrarse como
-// roadmap, pero no se puede seleccionar todavía.
-const SELECTABLE_PLANS: PlanCode[] = ["FREE", "STARTER"];
-
 export async function updateUserPlan(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const { session } = await requireCompany();
   const planCode = formData.get("planCode") as PlanCode;
 
-  if (!SELECTABLE_PLANS.includes(planCode)) {
+  if (!PLANS[planCode]?.available) {
     return { error: "Ese plan todavía no está disponible." };
+  }
+
+  const companyCount = await prisma.company.count({ where: { userId: session.user.id } });
+  const newLimit = MAX_COMPANIES_PER_PLAN[planCode];
+  if (companyCount > newLimit) {
+    return { error: `No puedes bajar a este plan: tienes ${companyCount} empresas y este plan permite hasta ${newLimit}.` };
   }
 
   await prisma.user.update({ where: { id: session.user.id }, data: { planCode } });

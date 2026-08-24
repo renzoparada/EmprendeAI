@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScenarioEditorForm } from "@/components/escenarios/scenario-editor-form";
+import { RiskAndScenarioPanel } from "@/components/escenarios/risk-and-scenario-panel";
 import { buildCompanySnapshot, computeRoi, totalInvestment } from "@/lib/engine/financial";
 import { applyScenario, DEFAULT_SCENARIO_DELTAS, type ScenarioType } from "@/lib/engine/scenarios";
 import { toEngineFixedCosts, toEngineProducts, toEngineVariableCosts } from "@/lib/mappers";
@@ -156,6 +157,8 @@ export default async function EscenariosPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <RiskAndScenarioPanel currency={company.currency} />
     </div>
   );
 }

@@ -16,6 +16,15 @@ import {
   Users,
   FileText,
   Target,
+  Building2,
+  Filter,
+  LineChart,
+  BookOpen,
+  HandCoins,
+  Gauge,
+  GraduationCap,
+  History,
+  Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -31,17 +40,26 @@ interface NavItem {
 // (§30) quedan visibles pero deshabilitados con badge "Próximamente".
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true },
+  { href: "/kpis", label: "Biblioteca de KPIs", icon: Gauge, enabled: true },
+  { href: "/historico", label: "Histórico", icon: History, enabled: true },
   { href: "/mi-negocio", label: "Mi Negocio", icon: Briefcase, enabled: true },
   { href: "/costos", label: "Estructura de Costos", icon: Wallet, enabled: true },
   { href: "/inversion", label: "Inversión Inicial", icon: Landmark, enabled: true },
+  { href: "/financiamiento", label: "Financiamiento", icon: HandCoins, enabled: true },
   { href: "/escenarios", label: "Escenarios", icon: GitBranch, enabled: true },
+  { href: "/simulador", label: "Business Simulator", icon: Rocket, enabled: true },
   { href: "/precios", label: "Precios", icon: Tag, enabled: true },
-  { href: "/sensibilidad", label: "Sensibilidad", icon: Activity, enabled: false },
-  { href: "/multimoneda", label: "Multimoneda", icon: TrendingUp, enabled: false },
-  { href: "/valoracion", label: "Valoración", icon: Gem, enabled: false },
-  { href: "/socios", label: "Socios / Cap Table", icon: Users, enabled: false },
-  { href: "/reportes", label: "Reportes", icon: FileText, enabled: false },
-  { href: "/metas", label: "Mis Metas", icon: Target, enabled: false },
+  { href: "/ventas", label: "Ventas / Embudo", icon: Filter, enabled: true },
+  { href: "/sensibilidad", label: "Sensibilidad", icon: Activity, enabled: true },
+  { href: "/multimoneda", label: "Multimoneda", icon: TrendingUp, enabled: true },
+  { href: "/valoracion", label: "Valoración", icon: Gem, enabled: true },
+  { href: "/socios", label: "Socios / Cap Table", icon: Users, enabled: true },
+  { href: "/inversionistas", label: "Dashboard Inversores", icon: LineChart, enabled: true },
+  { href: "/plan-de-negocio", label: "Business Plan", icon: BookOpen, enabled: true },
+  { href: "/reportes", label: "Reportes", icon: FileText, enabled: true },
+  { href: "/metas", label: "Mis Metas", icon: Target, enabled: true },
+  { href: "/negocios", label: "Mis Negocios", icon: Building2, enabled: true },
+  { href: "/metodologia", label: "Metodología", icon: GraduationCap, enabled: true },
   { href: "/perfil", label: "Perfil", icon: User, enabled: true },
 ];
 // El chat EMPRENDE AI (spec §10) no es una ruta del sidebar — vive como panel

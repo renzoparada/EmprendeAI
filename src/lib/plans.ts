@@ -1,7 +1,10 @@
 /**
- * Planes SaaS (spec §25). El MVP solo activa features de FREE/STARTER; PRO,
- * BUSINESS y CONSULTOR quedan definidos aquí (para que Perfil los muestre
- * como roadmap) pero sus features no se construyen todavía.
+ * Planes SaaS (spec §25). Todas las features listadas ya están construidas
+ * en la plataforma (a esta altura del roadmap ningún módulo queda detrás de
+ * un gate de plan real — no hay pasarela de pago integrada todavía, así que
+ * "available" solo controla si el plan aparece seleccionable en Perfil).
+ * `MAX_COMPANIES_PER_PLAN` es la única regla de negocio realmente aplicada
+ * (Multinegocio, spec §20) — se valida en `completeOnboarding`.
  */
 import type { PlanCode } from "@prisma/client";
 
@@ -18,37 +21,50 @@ export const PLANS: Record<PlanCode, PlanDefinition> = {
     code: "FREE",
     name: "Free",
     description: "Funciones básicas para empezar a modelar tu negocio.",
-    features: ["Mi Negocio", "Estructura de Costos", "Dashboard básico"],
+    features: ["Mi Negocio", "Estructura de Costos", "Dashboard básico", "1 empresa"],
     available: true,
   },
   STARTER: {
     code: "STARTER",
     name: "Starter",
     description: "Proyecciones, finanzas y dashboard completo.",
-    features: ["Todo Free", "Inversión Inicial", "Escenarios (Pesimista/Base/Optimista)"],
+    features: ["Todo Free", "Inversión Inicial", "Escenarios (Pesimista/Base/Optimista)", "1 empresa"],
     available: true,
   },
   PRO: {
     code: "PRO",
     name: "Pro",
-    description: "IA, simulaciones, Business Plan, reportes y valoración básica.",
-    features: ["Todo Starter", "Chat EMPRENDE AI", "Reportes", "Valoración (1 método)"],
-    available: false,
+    description: "IA, simulaciones, reportes, precificación y multimoneda.",
+    features: ["Todo Starter", "Chat EMPRENDE AI", "Reportes", "Precificación", "Multimoneda", "Hasta 3 empresas"],
+    available: true,
   },
   BUSINESS: {
     code: "BUSINESS",
     name: "Business",
-    description: "Multiempresa, usuarios, valoración completa y Cap Table.",
-    features: ["Todo Pro", "Multiempresa", "Cap Table completo", "Reporte para inversionistas"],
-    available: false,
+    description: "Multiempresa, valoración completa y Cap Table.",
+    features: ["Todo Pro", "Multiempresa ilimitada", "Valoración (todos los métodos)", "Cap Table + simulador de rondas"],
+    available: true,
   },
   CONSULTOR: {
     code: "CONSULTOR",
     name: "Consultor",
-    description: "Administra múltiples clientes y valoraciones en paralelo.",
-    features: ["Todo Business", "Panel multi-cliente"],
-    available: false,
+    description: "Administra múltiples negocios propios en paralelo (ideal para consultores).",
+    features: ["Todo Business", "Multiempresa ilimitada"],
+    available: true,
   },
+};
+
+/**
+ * Límite de empresas por plan (Multinegocio, spec §20/§25). `Infinity` =
+ * sin límite. Es la única regla de plan con enforcement real en el código
+ * (`completeOnboarding`, `lib/actions/onboarding-actions.ts`).
+ */
+export const MAX_COMPANIES_PER_PLAN: Record<PlanCode, number> = {
+  FREE: 1,
+  STARTER: 1,
+  PRO: 3,
+  BUSINESS: Infinity,
+  CONSULTOR: Infinity,
 };
 
 export function planFeatureList(code: PlanCode): PlanDefinition {
