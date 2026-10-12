@@ -60,6 +60,23 @@ model User {
   accessGrantsReceived  CompanyAccessGrant[] @relation("AccessGrantsReceived")
   /// Accesos que este usuario otorgó, como dueño, sobre sus propias empresas.
   accessGrantsGiven     CompanyAccessGrant[] @relation("AccessGrantsGiven")
+  passwordResetTokens   PasswordResetToken[]
+}
+
+/// Recuperación de contraseña (spec §25). El token nunca se guarda en texto
+/// plano — se persiste su hash SHA-256; el crudo solo existe en el link que
+/// recibe el usuario por email. Vence en 1 hora y se borra al usarse (ver
+/// `resetPassword` en password-reset-actions.ts) — nunca queda un token
+/// consumido dando vueltas en la base.
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // ---------------------------------------------------------------------------

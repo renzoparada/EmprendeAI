@@ -146,6 +146,11 @@ El repo está listo para desplegarse (Vercel, o cualquier host Node), pero **no 
      disponible" — el resto de la plataforma funciona igual, nunca depende de la IA para calcular).
    - `CRON_SECRET` (opcional, spec §20 — solo si vas a apuntar un cron externo a
      `/api/cron/snapshot` para una captura de fin de mes más precisa que la perezosa).
+   - `AUTH_URL` con la URL pública de la app (ej. `https://tuapp.com`) — la usa NextAuth y el
+     link de recuperación de contraseña.
+   - `RESEND_API_KEY` (opcional, recuperación de contraseña vía Resend) — sin ella, el link de
+     recuperación se imprime en el log del servidor en vez de enviarse por email; el resto de la
+     plataforma funciona igual sin configurarla, igual que `ANTHROPIC_API_KEY`.
 3. **Primer usuario admin**: `npm run db:seed` (el de desarrollo) **nunca se corre en
    producción** — crea cuentas con contraseñas conocidas (`demo1234`/`admin1234`). Para
    producción: `npm run db:seed:prod` con `ADMIN_EMAIL`/`ADMIN_PASSWORD` configuradas en el
@@ -155,16 +160,18 @@ El repo está listo para desplegarse (Vercel, o cualquier host Node), pero **no 
 ### CI
 
 `.github/workflows/ci.yml` corre en cada PR y en cada push a `main`: instala dependencias, genera
-el cliente de Prisma, `tsc --noEmit`, `eslint`, `vitest`, aplica todas las migraciones con
-`prisma migrate deploy` contra un Postgres real (servicio efímero del propio workflow — así un
-migration roto se detecta antes del deploy, no después) y por último `next build`. Nada llega a
-`main` sin pasar por los mismos cuatro chequeos que se corrieron a mano en cada commit de este
-proyecto.
+el cliente de Prisma, `eslint`, `vitest`, aplica todas las migraciones con `prisma migrate deploy`
+contra un Postgres real (servicio efímero del propio workflow — así un migration roto se detecta
+antes del deploy, no después) y por último `next build`, que incluye el chequeo de tipos (no hay
+un paso separado de `tsc --noEmit`: en un checkout limpio, los tipos ambientales que genera
+Next.js como `LayoutProps` no existen hasta que corre por primera vez, así que un `tsc` standalone
+antes de `next build` falla aunque el código esté bien). Nada llega a `main` sin pasar por los
+mismos chequeos que se corrieron a mano en cada commit de este proyecto.
 
 Fuera de esto, quedan gaps de "producción real" que no se resolvieron en este repo porque son
-decisiones de infraestructura del que despliega, no de la plataforma en sí: no hay recuperación
-de contraseña por email (no hay proveedor de email integrado), no hay rate limiting en `/login`
-ni en las acciones que llaman a la IA, y no hay monitoreo de errores (Sentry o similar).
+decisiones de infraestructura del que despliega, no de la plataforma en sí: no hay rate limiting
+en `/login` ni en las acciones que llaman a la IA, y no hay monitoreo de errores (Sentry o
+similar).
 
 ## Scripts
 
@@ -256,6 +263,10 @@ src/components/admin/         UI del Panel Admin
       (`resolveActiveCompany`), así que las ~38 Server Actions existentes ganaron soporte
       cross-account sin tener que auditarlas una por una. v1 no distingue viewer/editor — ver
       "Alcance de v2.0" para el porqué.
+- [x] **Recuperación y cambio de contraseña** (spec §25) — "¿Olvidaste tu contraseña?" en
+      `/login` envía un link de un solo uso (vence en 1 hora) para elegir una nueva sin
+      necesitar la actual; desde Perfil, cambiarla con la contraseña actual. Ver "Notas de
+      diseño" para el detalle de seguridad (tokens hasheados, sin enumeración de emails).
 - [ ] **Pendiente, fuera de todas las fases** — Pagos/Suscripciones reales (requiere pasarela de
       pago integrada). Ver "Alcance de v2.0" para el detalle de por qué. También quedan sin
       construir, por requerir datos o modelos que hoy no existen: Benchmarking sectorial (§13,
@@ -463,7 +474,17 @@ límite de empresas.
   cambian en un redeploy posterior. La razón: un script de seed que pudiera pisar la contraseña de
   un admin ya creado, solo con cambiar una variable de entorno en el panel del hosting, sería una
   puerta trasera — cambiar la contraseña de un admin existente queda, a propósito, como una
-  operación manual (no hay todavía una función de "cambiar contraseña" en Perfil — es un gap
-  documentado, no resuelto en esta sesión). Si el email ya pertenece a una cuenta que se registró
-  sola por `/register`, el script la promueve a `ADMIN` sin tocar la contraseña que esa persona
-  ya eligió.
+  operación manual: usando "Cambiar contraseña" en Perfil (ver nota siguiente) o el flujo de
+  recuperación si la olvidó, nunca reseteando una variable de entorno. Si el email ya pertenece a
+  una cuenta que se registró sola por `/register`, el script la promueve a `ADMIN` sin tocar la
+  contraseña que esa persona ya eligió.
+- **Recuperación y cambio de contraseña (spec §25)**: dos flujos separados. Sin sesión
+  ("¿Olvidaste tu contraseña?" en `/login`) se genera un token de un solo uso — se persiste su
+  hash SHA-256, nunca el valor crudo, que solo existe en el link enviado por email — vence en 1
+  hora y se borra al usarse (no queda un token consumido dando vueltas en la base). El pedido de
+  recuperación siempre responde el mismo mensaje de éxito exista o no la cuenta con ese email,
+  para no poder usarse como forma de enumerar qué emails están registrados. Con sesión (desde
+  Perfil), cambiarla exige la contraseña actual — no alcanza con estar logueado. El envío de
+  email es opcional (`RESEND_API_KEY`): sin configurar, el link se imprime en el log del servidor,
+  útil en desarrollo, igual al patrón ya usado para `ANTHROPIC_API_KEY`/`CRON_SECRET` — el resto
+  de la plataforma nunca depende de tener esto configurado.

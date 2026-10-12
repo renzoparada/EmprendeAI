@@ -2,6 +2,7 @@ import { requireCompany } from "@/lib/actions/guard";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CompanyProfileForm } from "@/components/perfil/company-profile-form";
+import { ChangePasswordForm } from "@/components/perfil/change-password-form";
 import { PlanSelector } from "@/components/perfil/plan-selector";
 import { USER_TYPE_LABELS, BUSINESS_TYPE_LABELS, OPERATING_STAGE_LABELS } from "@/lib/constants";
 
@@ -23,6 +24,16 @@ export default async function PerfilPage() {
             {user.name} · {user.email}
           </CardDescription>
         </CardHeader>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold text-slate-900">Seguridad</CardTitle>
+          <CardDescription>Cambia tu contraseña.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChangePasswordForm />
+        </CardContent>
       </Card>
 
       <Card>

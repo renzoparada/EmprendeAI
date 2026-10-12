@@ -26,7 +26,12 @@ export default function LoginPage() {
             <Input id="email" name="email" type="email" required autoComplete="email" placeholder="tu@empresa.com" />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="password">Contraseña</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Contraseña</Label>
+              <Link href="/recuperar" className="text-xs font-medium text-emerald-700 hover:underline">
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
             <Input id="password" name="password" type="password" required autoComplete="current-password" />
           </div>
           {state.error && <p className="text-sm text-red-600">{state.error}</p>}
