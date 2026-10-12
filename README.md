@@ -168,10 +168,9 @@ Next.js como `LayoutProps` no existen hasta que corre por primera vez, así que 
 antes de `next build` falla aunque el código esté bien). Nada llega a `main` sin pasar por los
 mismos chequeos que se corrieron a mano en cada commit de este proyecto.
 
-Fuera de esto, quedan gaps de "producción real" que no se resolvieron en este repo porque son
-decisiones de infraestructura del que despliega, no de la plataforma en sí: no hay rate limiting
-en `/login` ni en las acciones que llaman a la IA, y no hay monitoreo de errores (Sentry o
-similar).
+Fuera de esto, queda un gap de "producción real" que no se resolvió en este repo porque es una
+decisión de infraestructura del que despliega, no de la plataforma en sí: no hay monitoreo de
+errores (Sentry o similar).
 
 ## Scripts
 
@@ -267,6 +266,10 @@ src/components/admin/         UI del Panel Admin
       `/login` envía un link de un solo uso (vence en 1 hora) para elegir una nueva sin
       necesitar la actual; desde Perfil, cambiarla con la contraseña actual. Ver "Notas de
       diseño" para el detalle de seguridad (tokens hasheados, sin enumeración de emails).
+- [x] **Rate limiting en `/login` y en toda llamada a la IA** — respaldado en Postgres, no en
+      memoria (necesario para que funcione en un deploy serverless). El de IA se resolvió en un
+      único punto (`askEmprendeAI`), así que cubre chat, narrativas, plan de acción de Mis Metas,
+      Business Plan y explicación de alertas sin tocar cada Server Action. Ver "Notas de diseño".
 - [ ] **Pendiente, fuera de todas las fases** — Pagos/Suscripciones reales (requiere pasarela de
       pago integrada). Ver "Alcance de v2.0" para el detalle de por qué. También quedan sin
       construir, por requerir datos o modelos que hoy no existen: Benchmarking sectorial (§13,
@@ -488,3 +491,28 @@ límite de empresas.
   email es opcional (`RESEND_API_KEY`): sin configurar, el link se imprime en el log del servidor,
   útil en desarrollo, igual al patrón ya usado para `ANTHROPIC_API_KEY`/`CRON_SECRET` — el resto
   de la plataforma nunca depende de tener esto configurado.
+- **Rate limiting (`lib/rate-limit.ts`)**: respaldado en Postgres (`RateLimitBucket`), no en
+  memoria — un contador en memoria no protegería nada en un deploy serverless (ej. Vercel), donde
+  cada invocación puede correr en un proceso nuevo. Ventana fija (no sliding window): un `count`
+  por `key` que se resetea completo cuando vence, para no agregar la complejidad de un sliding
+  window a algo que solo necesita frenar brute-force/abuso, no medir tráfico con precisión.
+  - **`/login`**: dos límites independientes — 5 intentos/10min por email (frena brute-force
+    contra una cuenta puntual, cuenta tanto los fallidos como los exitosos) y 20 intentos/10min
+    por IP (`x-forwarded-for`, que en un deploy como Vercel pone el proveedor delante de lo que
+    manda el cliente — no se puede falsear ahí). Bloqueado significa bloqueado para cualquier
+    contraseña, incluso la correcta — ver la verificación más abajo.
+  - **IA**: un único punto, dentro de `askEmprendeAI` (`lib/ai/client.ts`) — el mismo choke point
+    por el que pasan el chat, las narrativas de escenario, el plan de acción de Mis Metas, el
+    Business Plan y la explicación de alertas (todas vía `generateStructuredJson`, que también
+    pasa por ahí). Poner el límite ahí lo aplica a todas esas features sin tocar cada Server
+    Action — mismo truco que `resolveActiveCompany` para el acceso cross-account. 20
+    llamadas/10min por usuario (`session.user.id`, no por IP — tiene que valer para cualquier
+    sesión autenticada, compartida o no). El rechazo corta antes de llamar a la API de Anthropic
+    (nunca gasta una llamada real) y da un mensaje distinto al de un error de red real.
+  - **Verificado con un server real corriendo** (no solo revisión de código): login con contraseña
+    incorrecta 5 veces seguidas bloquea el 6° intento — incluso con la contraseña correcta; un
+    email distinto desde el mismo origen no se ve afectado (aislamiento por key); rebobinar
+    `windowStart` más allá de la ventana devuelve el login a funcionar. Chat de IA con una API key
+    falsa y el límite bajado temporalmente a 3 para la prueba: los primeros 3 intentos sí llaman a
+    Anthropic (fallan por la key falsa, mensaje de error de red), el 4° nunca llega a llamar a la
+    API — corta en el rate limit con su propio mensaje. Límite restaurado a 20 después de probar.

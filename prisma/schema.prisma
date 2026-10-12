@@ -79,6 +79,19 @@ model PasswordResetToken {
   @@index([userId])
 }
 
+/// Rate limiting en `/login` y en toda llamada a la IA (chat, narrativas,
+/// plan de acción, business plan — todas pasan por `askEmprendeAI`, ver
+/// lib/ai/client.ts). Respaldado en Postgres, no en memoria: un deploy
+/// serverless (ej. Vercel) puede correr cada invocación en un proceso
+/// nuevo, así que un contador en memoria no protegería nada en producción.
+/// Un row por `key` (ej. "login-email:x@y.com", "ai:<userId>"); ventana
+/// fija que se resetea completa cuando vence — nunca crece sin límite.
+model RateLimitBucket {
+  key         String   @id
+  count       Int      @default(1)
+  windowStart DateTime @default(now())
+}
+
 // ---------------------------------------------------------------------------
 // Onboarding y negocio (§1, §3)
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@
 import "server-only";
 import type { z } from "zod";
 import { askEmprendeAI, isAIConfigured } from "@/lib/ai/client";
+import { RateLimitExceededError } from "@/lib/rate-limit";
 
 function extractJson(text: string): unknown {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -38,8 +39,13 @@ export async function generateStructuredJson<T>(
       if (parsed.success) {
         return { data: parsed.data, missingData: [] };
       }
-    } catch {
-      // intenta de nuevo en el siguiente loop, o cae al retorno de abajo
+    } catch (error) {
+      // Reintentar no ayuda si ya estamos rate-limited (la ventana sigue
+      // activa): corta ahí mismo en vez de gastar el segundo intento.
+      if (error instanceof RateLimitExceededError) {
+        return { data: null, missingData: [error.message] };
+      }
+      // Cualquier otro error: intenta de nuevo en el siguiente loop, o cae al retorno de abajo.
     }
   }
 

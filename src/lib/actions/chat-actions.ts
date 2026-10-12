@@ -5,6 +5,7 @@ import { requireCompany } from "@/lib/actions/guard";
 import { buildAIContext } from "@/lib/ai/context";
 import { buildSystemPrompt } from "@/lib/ai/prompt";
 import { askEmprendeAI, isAIConfigured } from "@/lib/ai/client";
+import { RateLimitExceededError } from "@/lib/rate-limit";
 
 export interface ChatMessageView {
   id: string;
@@ -74,8 +75,12 @@ export async function sendChatMessage(prevState: ChatState, formData: FormData):
     replyText = response.text;
     usage = response.usage;
   } catch (error) {
-    console.error("EMPRENDE AI chat error:", error);
-    replyText = "Tuve un problema técnico consultando a EMPRENDE AI. Intenta de nuevo en un momento.";
+    if (error instanceof RateLimitExceededError) {
+      replyText = `Estás mandando mensajes muy rápido. Esperá ${error.retryAfterSeconds}s e intentá de nuevo.`;
+    } else {
+      console.error("EMPRENDE AI chat error:", error);
+      replyText = "Tuve un problema técnico consultando a EMPRENDE AI. Intenta de nuevo en un momento.";
+    }
   }
 
   // Uso de tokens (spec §25, Panel Admin) — solo se registra si la llamada
