@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { ProductType } from "@prisma/client";
+import { CostOrigin, ProductType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireCompany } from "@/lib/actions/guard";
 import type { ActionState } from "@/lib/actions/auth-actions";
@@ -18,12 +18,14 @@ const productSchema = z.object({
   commissionPct: z.coerce.number().min(0).max(100),
   taxPct: z.coerce.number().min(0).max(100),
   discountPct: z.coerce.number().min(0).max(100),
+  costOrigin: z.nativeEnum(CostOrigin).default("LOCAL"),
 });
 
 function revalidateAll() {
   revalidatePath("/mi-negocio");
   revalidatePath("/dashboard");
   revalidatePath("/escenarios");
+  revalidatePath("/multimoneda");
 }
 
 export async function saveProduct(_prevState: ActionState, formData: FormData): Promise<ActionState> {

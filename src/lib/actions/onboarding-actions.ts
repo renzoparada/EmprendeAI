@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
@@ -8,8 +9,9 @@ import {
   UserType,
 } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { requireSession } from "@/lib/actions/guard";
+import { requireSession, ACTIVE_COMPANY_COOKIE } from "@/lib/actions/guard";
 import { DEFAULT_SCENARIO_DELTAS } from "@/lib/engine/scenarios";
+import { MAX_COMPANIES_PER_PLAN, PLANS } from "@/lib/plans";
 import type { ActionState } from "@/lib/actions/auth-actions";
 
 const onboardingSchema = z.object({
@@ -36,6 +38,18 @@ export async function completeOnboarding(_prevState: ActionState, formData: Form
 
   const data = parsed.data;
 
+  // Multinegocio (spec §20): el límite de empresas por plan es la única
+  // regla de plan con enforcement real — se valida siempre contra la DB,
+  // nunca contra algo que venga del cliente.
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: session.user.id } });
+  const existingCompanyCount = await prisma.company.count({ where: { userId: user.id } });
+  const companyLimit = MAX_COMPANIES_PER_PLAN[user.planCode];
+  if (existingCompanyCount >= companyLimit) {
+    return {
+      error: `Tu plan ${PLANS[user.planCode].name} permite hasta ${Number.isFinite(companyLimit) ? companyLimit : "∞"} empresa(s). Mejora tu plan en Perfil para agregar más.`,
+    };
+  }
+
   const company = await prisma.company.create({
     data: {
       userId: session.user.id,
@@ -61,6 +75,16 @@ export async function completeOnboarding(_prevState: ActionState, formData: Form
       type,
       ...DEFAULT_SCENARIO_DELTAS[type],
     })),
+  });
+
+  // La empresa recién creada pasa a ser la activa (relevante cuando el
+  // usuario ya tenía otras — Multinegocio).
+  const cookieStore = await cookies();
+  cookieStore.set(ACTIVE_COMPANY_COOKIE, company.id, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
   });
 
   redirect("/dashboard");

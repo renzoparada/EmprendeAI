@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { InvestmentFormDialog } from "@/components/inversion/investment-form-dialog";
 import { InvestmentsTable } from "@/components/inversion/investments-table";
+import { VanTirCalculator } from "@/components/inversion/van-tir-calculator";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { buildCompanySnapshot, computePaybackMonths, computeRoi, totalInvestment } from "@/lib/engine/financial";
 import { toEngineFixedCosts, toEngineProducts, toEngineVariableCosts } from "@/lib/mappers";
@@ -86,6 +87,8 @@ export default async function InversionPage() {
       </div>
 
       <InvestmentsTable investments={investments} currency={company.currency} />
+
+      <VanTirCalculator baseAnnualCashFlow={snapshot.cashFlow.flujoNeto * 12} inversionTotal={inversionTotal} currency={company.currency} />
     </div>
   );
 }

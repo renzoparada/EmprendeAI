@@ -5,6 +5,8 @@ import {
   buildIncomeStatement,
   computeAggregateMargins,
   computeBreakEven,
+  computeIRR,
+  computeNPV,
   computePaybackMonths,
   computeProductEconomics,
   computeRoi,
@@ -179,5 +181,27 @@ describe("applyScenario + buildCompanySnapshot (§9)", () => {
       25
     );
     expect(snapshotOptimista.statement.utilidadNeta).toBeGreaterThan(snapshotBase.statement.utilidadNeta);
+  });
+});
+
+describe("computeNPV y computeIRR (21.4)", () => {
+  it("calcula el VAN descontando los flujos a la tasa dada", () => {
+    // Inversión 1000, flujo constante de 300/año por 5 años, tasa 10%.
+    const cashFlows = [300, 300, 300, 300, 300];
+    const npv = computeNPV(cashFlows, 10, 1000);
+    // VAN esperado ≈ 300 * [1-(1.1)^-5]/0.1 - 1000 ≈ 137.24
+    expect(npv).toBeCloseTo(137.24, 1);
+  });
+
+  it("VAN = 0 cuando la tasa es exactamente la TIR", () => {
+    const cashFlows = [400, 400, 400];
+    const irr = computeIRR(cashFlows, 1000)!;
+    expect(irr).not.toBeNull();
+    expect(computeNPV(cashFlows, irr, 1000)).toBeCloseTo(0, 2);
+  });
+
+  it("devuelve null si no hay cambio de signo (no se puede resolver)", () => {
+    // Todos los flujos negativos y sin inversión: VAN siempre negativo.
+    expect(computeIRR([-100, -100], 0)).toBeNull();
   });
 });

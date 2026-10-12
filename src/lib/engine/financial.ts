@@ -195,6 +195,47 @@ export function computePaybackMonths(inversionInicial: number, flujoCajaPromedio
 }
 
 // ---------------------------------------------------------------------------
+// 21.4 — VAN y TIR
+// ---------------------------------------------------------------------------
+
+/** VAN = Σ [FCt / (1+r)^t] − Inversión Inicial (t = 1..n). `discountRatePct` en %. */
+export function computeNPV(cashFlows: number[], discountRatePct: number, initialInvestment: number): number {
+  const r = discountRatePct / 100;
+  const presentValue = cashFlows.reduce((sum, cf, i) => sum + cf / Math.pow(1 + r, i + 1), 0);
+  return presentValue - initialInvestment;
+}
+
+/**
+ * TIR = tasa r que hace VAN = 0 — resolución numérica por bisección entre
+ * -99% y 1000%, robusta para flujos convencionales (inversión inicial
+ * negativa seguida de flujos positivos). Si no hay cambio de signo en ese
+ * rango no se puede resolver de forma confiable — devuelve `null` en vez de
+ * inventar una tasa (spec §0.3).
+ */
+export function computeIRR(cashFlows: number[], initialInvestment: number): number | null {
+  const npvAtRate = (ratePct: number) => computeNPV(cashFlows, ratePct, initialInvestment);
+  let lo = -99;
+  let hi = 1000;
+  const npvLo = npvAtRate(lo);
+  const npvHi = npvAtRate(hi);
+  if (npvLo === 0) return lo;
+  if (npvHi === 0) return hi;
+  if (Math.sign(npvLo) === Math.sign(npvHi)) return null;
+
+  for (let i = 0; i < 200; i++) {
+    const mid = (lo + hi) / 2;
+    const npvMid = npvAtRate(mid);
+    if (Math.abs(npvMid) < 1e-6) return mid;
+    if (Math.sign(npvMid) === Math.sign(npvLo)) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return (lo + hi) / 2;
+}
+
+// ---------------------------------------------------------------------------
 // §8 — Estado de resultados
 // ---------------------------------------------------------------------------
 

@@ -10,5 +10,10 @@ export default async function Home() {
   }
 
   const company = await prisma.company.findFirst({ where: { userId: session.user.id } });
-  redirect(company ? "/dashboard" : "/onboarding");
+  if (company) redirect("/dashboard");
+
+  // Un administrador no necesita una empresa propia para usar el Panel Admin.
+  if (session.user.role === "ADMIN") redirect("/admin");
+
+  redirect("/onboarding");
 }

@@ -5,6 +5,7 @@ import { requireCompany } from "@/lib/actions/guard";
 import { buildAIContext } from "@/lib/ai/context";
 import { buildSystemPrompt } from "@/lib/ai/prompt";
 import { askEmprendeAI, isAIConfigured } from "@/lib/ai/client";
+import { RateLimitExceededError } from "@/lib/rate-limit";
 
 export interface ChatMessageView {
   id: string;
@@ -65,17 +66,28 @@ export async function sendChatMessage(prevState: ChatState, formData: FormData):
   const systemPrompt = buildSystemPrompt(context);
 
   let replyText: string;
+  let usage: { inputTokens: number; outputTokens: number } | null = null;
   try {
-    replyText = await askEmprendeAI(
+    const response = await askEmprendeAI(
       systemPrompt,
       history.map((m) => ({ role: m.role, content: m.content }))
     );
+    replyText = response.text;
+    usage = response.usage;
   } catch (error) {
-    console.error("EMPRENDE AI chat error:", error);
-    replyText = "Tuve un problema técnico consultando a EMPRENDE AI. Intenta de nuevo en un momento.";
+    if (error instanceof RateLimitExceededError) {
+      replyText = `Estás mandando mensajes muy rápido. Esperá ${error.retryAfterSeconds}s e intentá de nuevo.`;
+    } else {
+      console.error("EMPRENDE AI chat error:", error);
+      replyText = "Tuve un problema técnico consultando a EMPRENDE AI. Intenta de nuevo en un momento.";
+    }
   }
 
-  await prisma.aIMessage.create({ data: { conversationId, role: "ASSISTANT", content: replyText } });
+  // Uso de tokens (spec §25, Panel Admin) — solo se registra si la llamada
+  // fue exitosa; un error de red no debe verse como "0 tokens usados".
+  await prisma.aIMessage.create({
+    data: { conversationId, role: "ASSISTANT", content: replyText, inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens },
+  });
 
   const messages = await prisma.aIMessage.findMany({ where: { conversationId }, orderBy: { createdAt: "asc" } });
 

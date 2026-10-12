@@ -3,6 +3,12 @@
  * con productos, costos fijos/variables, inversión inicial y los tres
  * escenarios por defecto — suficiente para ver el Dashboard y Escenarios con
  * datos reales sin tener que cargarlos a mano.
+ *
+ * ⚠️ SOLO DESARROLLO — crea cuentas con contraseñas conocidas y públicas
+ * (demo@emprendeai.com / demo1234, admin@emprendeai.com / admin1234).
+ * Nunca correr esto contra una base de datos de producción. El seed de
+ * producción es `npm run db:seed:prod` (prisma/seed-production.ts) — no
+ * crea datos demo, solo el primer admin, a partir de variables de entorno.
  */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -19,6 +25,18 @@ async function main() {
     update: {},
     create: { name: "Usuario Demo", email, passwordHash, planCode: "STARTER" },
   });
+
+  // Usuario administrador para probar el Panel Admin (spec §25) — sin
+  // empresa propia, solo acceso a /admin.
+  const adminEmail = "admin@emprendeai.com";
+  const adminPasswordHash = await bcrypt.hash("admin1234", 10);
+  await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: { role: "ADMIN" },
+    create: { name: "Admin EMPRENDE AI", email: adminEmail, passwordHash: adminPasswordHash, planCode: "BUSINESS", role: "ADMIN" },
+  });
+
+  console.log(`Admin: ${adminEmail} / admin1234 (sin empresa propia, entra directo a /admin)`);
 
   const existingCompany = await prisma.company.findFirst({ where: { userId: user.id } });
   if (existingCompany) {

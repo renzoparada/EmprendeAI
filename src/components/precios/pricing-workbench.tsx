@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { PricePoint, Product } from "@prisma/client";
 import {
@@ -94,6 +95,9 @@ export function PricingWorkbench({
             ) : (
               <p className="text-sm text-slate-400">Carga ≥2 datos históricos para calcularla</p>
             )}
+            <Link href="/metodologia#ELASTICIDAD_PRECIO" className="mt-1 inline-block text-xs font-medium text-emerald-700 hover:underline">
+              Ver metodología →
+            </Link>
           </div>
         </CardContent>
       </Card>

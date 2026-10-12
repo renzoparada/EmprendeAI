@@ -88,6 +88,21 @@ export function ProductFormDialog({
               <Label htmlFor="category">Categoría (opcional)</Label>
               <Input id="category" name="category" defaultValue={product?.category ?? ""} />
             </div>
+            <div className="col-span-2 flex flex-col gap-1.5">
+              <Label htmlFor="costOrigin">Origen del costo</Label>
+              <select
+                id="costOrigin"
+                name="costOrigin"
+                defaultValue={product?.costOrigin ?? "LOCAL"}
+                className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+              >
+                <option value="LOCAL">Local</option>
+                <option value="IMPORTADO">Importado</option>
+              </select>
+              <p className="text-xs text-slate-500">
+                Si es importado, gestiona flete/arancel/tipo de cambio en el módulo Multimoneda.
+              </p>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
